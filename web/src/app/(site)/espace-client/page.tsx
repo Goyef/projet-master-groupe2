@@ -1,4 +1,5 @@
-import { redirect } from "next/navigation";
+import { redirect } from "next/navigation"
+
 export default function ClientPage() {
-  redirect("/connexion");
+  redirect("/connexion")
 }

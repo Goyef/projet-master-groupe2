@@ -1,155 +1,108 @@
-# Site web séminaires — application Next.js
+# Synégo — application Next.js
 
-Socle technique du site : **Next.js 16** (App Router, TypeScript), **Tailwind CSS 4** et **shadcn/ui** (Base UI). Le site comprend les pages publiques, la réservation et les espaces client et gérant.
+Site de Youcef (Synégo), coach-thérapeute : coaching autour du vide émotionnel en priorité, séminaires en entreprise en offre secondaire. Objectif principal : obtenir des appels découverte (appels de vente), le devis étant simulé pendant l'appel.
+
+Socle : **Next.js 16** (App Router, TypeScript), **Tailwind CSS 4**, **shadcn/ui** (Base UI), **Postgres** via **Drizzle ORM**.
 
 ## Démarrer
 
-```bash
-pnpm install
-pnpm dev
-```
-
-Puis ouvrir http://localhost:3000.
-
-| Commande     | Rôle                         |
-| ------------ | ---------------------------- |
-| `pnpm dev`   | Serveur de développement     |
-| `pnpm build` | Build de production          |
-| `pnpm start` | Lance le build de production |
-| `pnpm lint`  | Vérification ESLint          |
-
-## Ajouter un composant shadcn
-
-Sont installés : `Button`, `Badge`, `Card`, `Sheet`. Ajouter les autres au besoin :
+Prérequis : Node.js 20.9+, pnpm 10 (`corepack enable`), Docker Desktop.
 
 ```bash
-pnpm dlx shadcn@latest add card input label
+pnpm install --frozen-lockfile
+pnpm db:up            # Postgres local (docker-compose.yml)
+cp .env.example .env.local
 ```
 
-Les composants arrivent dans `src/components/ui/`. Catalogue : https://ui.shadcn.com/docs/components
+Dans `.env.local`, définir `ADMIN_EMAIL` et un `ADMIN_PASSWORD` unique d'au moins 12 caractères (ne jamais les commiter). Le compte gérant est créé au premier accès à l'API s'il n'existe pas encore.
+
+```bash
+pnpm dev              # http://localhost:3000
+```
+
+| Commande           | Rôle                                                   |
+| ------------------ | ------------------------------------------------------ |
+| `pnpm dev`         | Serveur de développement                               |
+| `pnpm build`       | Build de production                                    |
+| `pnpm start`       | Lance le build de production                           |
+| `pnpm lint`        | Vérification ESLint                                    |
+| `pnpm test`        | Test d'intégration (après `pnpm build`, Postgres lancé) |
+| `pnpm db:up`       | Démarre le Postgres de développement                   |
+| `pnpm db:generate` | Génère une migration après modification du schéma      |
+
+## Fonctionnalités
+
+- **Textes** : tous les textes du site sont dans `src/content/texts.ts` (français uniquement).
+- **Réservation** (`/rendez-vous`) : appel découverte (45 min) ou audit séminaire (45 min), sans compte. Champs demandés : prénom, nom, e-mail, téléphone et intention (« ce qui vous amène »), plus l'accord sur l'utilisation des données. Confirmation immédiate à l'écran.
+- **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
+- **Annulation / déplacement** : délai de 24 h annoncé sur le site ; pas de gestion en ligne, la personne prévient Youcef.
+- **Comptes clients** (`/connexion`, onglet « Créer un compte ») : chaque client crée lui-même son compte (nom, e-mail, téléphone, mot de passe de 12 caractères minimum) et est connecté immédiatement. Le gérant ne crée pas de compte ; il voit la liste des clients et peut désactiver ou réactiver un compte.
+- **Espace client** : rendez-vous, documents partagés et réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli.
+- **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, liste des comptes clients.
+- **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
+- Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
+
+Hors périmètre (décision de l'équipe) : e-mails de confirmation et de rappel, annulation ou déplacement en ligne, paiement.
+
+## Données
+
+Schéma : `src/db/schema.ts`. Migrations SQL : `drizzle/`, appliquées automatiquement au premier accès à la base. Après une modification du schéma : `pnpm db:generate`, puis commiter le fichier généré.
+
+En production, faire pointer `DATABASE_URL` vers la base Postgres du serveur (20 Go prévus). Les dates sont stockées avec fuseau et affichées en heure de Paris. Les PDF sont stockés en base (`bytea`) et servis après contrôle d'accès.
+
+Sécurité : cookies de session HttpOnly, SameSite=Lax, Secure en production ; mots de passe hachés avec scrypt ; tentatives de connexion limitées ; contrôle d'origine sur les requêtes POST.
+
+## Vérifier
+
+```bash
+pnpm build
+pnpm test
+```
+
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, les accès gérant/client, les documents privés, la désactivation et la déconnexion.
 
 ## Structure
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Layout racine (polices, métadonnées)
-│   ├── globals.css         # Thème : palette du gérant
-│   └── (site)/             # Pages publiques, avec en-tête et pied de page
-│       ├── layout.tsx
-│       └── page.tsx        # Landing page (accueil)
+│   ├── layout.tsx            # Layout racine (polices, métadonnées)
+│   ├── (site)/               # Pages publiques avec en-tête et pied de page
+│   └── api/portal/route.ts   # API : réservation, connexion, espace gérant
 ├── components/
-│   ├── layout/             # En-tête, pied de page, logo, menu mobile
-│   ├── sections/           # Blocs de page réutilisables
-│   └── ui/                 # Composants shadcn
-├── config/site.ts          # Nom du site, liens de navigation, thématiques
-└── lib/utils.ts            # Helper cn()
-public/brand/               # Logo du gérant
+│   ├── account/              # Espace client / gérant
+│   ├── booking/              # Formulaire de réservation
+│   ├── layout/               # En-tête, pied de page, logo, menu mobile
+│   ├── legal/                # Pages légales
+│   ├── sections/             # Blocs de page réutilisables
+│   └── ui/                   # Composants shadcn
+├── config/site.ts            # Nom, navigation, formats de rendez-vous
+├── content/texts.ts          # Tous les textes du site
+├── db/schema.ts              # Schéma Drizzle
+└── lib/
+    ├── format.ts             # Dates (heure de Paris) et gabarits de texte
+    └── store.ts              # Accès aux données
 ```
-
-Une page = un dossier dans `src/app/(site)/` contenant un `page.tsx` (ex. `src/app/(site)/seminaires/page.tsx` → `/seminaires`). Elle hérite automatiquement de l'en-tête et du pied de page.
-
-### Pages disponibles
-
-Les liens de navigation donnent accès aux pages suivantes :
-
-| Adresse             | Contenu attendu                                |
-| ------------------- | ---------------------------------------------- |
-| `/seminaires`       | Offre d'organisation de séminaires             |
-| `/rendez-vous`      | Prise de rendez-vous prospects                 |
-| `/connexion`        | Connexion des clients signés et du gérant      |
-| `/mentions-legales` | Mentions légales                               |
-| `/confidentialite`  | Politique de confidentialité (RGPD)            |
-
-Les textes de la landing page sont des propositions à faire valider par le gérant, et le nom « Cabinet Séminaires » est provisoire.
 
 ## Identité visuelle
 
-La palette est déclarée dans `src/app/globals.css`. Les variables shadcn (`bg-primary`, `bg-background`, `text-muted-foreground`…) l'utilisent déjà, et chaque couleur est aussi disponible directement (`bg-brand-navy`, `text-brand-sky`…).
+Palette dans `src/app/globals.css`, utilisable via les variables shadcn (`bg-primary`, `text-muted-foreground`…) ou directement (`bg-brand-navy`, `text-brand-sky`…).
 
-| Couleur      | Hex       | Pantone       | Classe Tailwind    |
-| ------------ | --------- | ------------- | ------------------ |
-| Bleu profond | `#0A1D35` | 296 C         | `brand-navy`       |
-| Ivoire       | `#F2E8DC` | Warm Gray 1 C | `brand-ivory`      |
-| Bleu clair   | `#6CAED6` | 2905 C        | `brand-sky`        |
-| Champagne    | `#D9C9B4` | 7500 C        | `brand-champagne`  |
-| Bleu diamant | `#D0E7F5` | 656 C         | `brand-diamond`    |
+| Couleur      | Hex       | Pantone       | Classe Tailwind   |
+| ------------ | --------- | ------------- | ----------------- |
+| Bleu profond | `#0A1D35` | 296 C         | `brand-navy`      |
+| Ivoire       | `#F2E8DC` | Warm Gray 1 C | `brand-ivory`     |
+| Bleu clair   | `#6CAED6` | 2905 C        | `brand-sky`       |
+| Champagne    | `#D9C9B4` | 7500 C        | `brand-champagne` |
+| Bleu diamant | `#D0E7F5` | 656 C         | `brand-diamond`   |
 
-Polices : **Inter** pour le texte (`font-sans`), **Cormorant Garamond** pour les titres (`font-heading`, appliquée par défaut aux `h1`–`h3`).
+Polices : **Inter** (`font-sans`) et **Cormorant Garamond** (`font-heading`). Logo : `public/brand/`.
 
-Logo : `public/brand/logo.png` (fond blanc) et `public/brand/logo-transparent.png`.
+## À finaliser avec Youcef
 
-
-## Fonctionnalités du cahier des charges
-
-# Site web séminaires
-
-Branche `feature/seminaires-cahier-des-charges`, créée depuis `develop` au commit `ab268a2`.
-
-Application Next.js 16, React et TypeScript. La charte et le logo sont conservés ; le site est recentré sur les séminaires conformément au cahier des charges et aux réponses du client.
-
-## Démarrer
-
-Node.js 24.15 ou supérieur est requis pour le module SQLite natif.
-
-```sh
-pnpm install --frozen-lockfile
-```
-
-Copier `.env.example` vers `.env.local`, puis définir `ADMIN_EMAIL` et un `ADMIN_PASSWORD` unique d’au moins 12 caractères. Ne jamais commiter ces valeurs. Au premier accès à l’API, le compte gérant est créé si aucun gérant n’existe. Modifier ensuite la variable ne change pas le mot de passe du compte déjà créé.
-
-```sh
-pnpm dev
-```
-
-Ouvrir http://localhost:3000. Le gérant se connecte sur `/connexion`, ajoute les disponibilités, crée les comptes clients et partage les documents. Aucun créneau ou compte client fictif n’est préchargé.
-
-```sh
-pnpm build
-pnpm start
-```
-
-Si le stockage de configuration de télémétrie Next.js pose problème sous Windows, définir `NEXT_TELEMETRY_DISABLED=1` dans l’environnement du processus.
-
-## Fonctionnement
-
-- `/` : accueil selon le design shadcn du groupe.
-- `/rendez-vous` : réservation prospects sans compte.
-- `/seminaires` : offre détaillée et thèmes transmis par le client.
-- Appel de vente et audit : 45 minutes. L’audit est accessible aux prospects et aux clients connectés.
-- Suivi réservé aux clients actifs connectés. La durée d’une heure reprend celle des séances individuelles ; l’équivalence avec le suivi reste à valider.
-- Chaque disponibilité correspond à un seul rendez-vous. Les disponibilités ne peuvent pas se chevaucher. La transaction de réservation empêche deux réservations concurrentes d’un même créneau.
-- Confirmation immédiate à l’écran, sans validation manuelle. Les e-mails et rappels ne sont pas implémentés car non définis dans le cahier des charges.
-- `/connexion` : connexion, rendez-vous personnels et documents autorisés. Le gérant y dispose d’une vue et d’actions supplémentaires.
-- Le gérant crée et désactive les comptes, consulte les rendez-vous et gère les disponibilités non réservées. Une désactivation invalide immédiatement les sessions du client.
-- PDF de 5 Mo maximum, partagés avec tous les clients ou un client désigné. Les fichiers sont servis après contrôle d’accès, pas depuis le répertoire public.
-- Le gérant peut marquer une séance passée comme réalisée et corriger ce statut. Une réservation n’est jamais comptée automatiquement comme une séance réalisée.
-
-Les textes restent des propositions à valider. Le paiement et l’application mobile sont hors périmètre.
-
-## Données et hébergement
-
-SQLite stocke les comptes, sessions, réservations et PDF dans `.data/seminaires.sqlite`, ignoré par Git. `DATA_DIRECTORY` permet de choisir un autre répertoire privé et persistant. Les dates sont stockées en timestamps ; les rendez-vous sont affichés en heure de Paris. La saisie des disponibilités utilise le fuseau de l’appareil du gérant.
-
-Ce stockage convient à un serveur Node avec disque persistant, sauvegardes et HTTPS. Cette version ne se déploie pas telle quelle sur un hébergement serverless à disque éphémère comme Vercel : migrer la base et les documents vers des services persistants avant un tel déploiement. Les cookies de session sont HttpOnly, SameSite=Lax et Secure en production ; les mots de passe utilisent scrypt avec un sel aléatoire. Les tentatives de connexion sont limitées par adresse de compte.
-
-## Vérifier
-
-Après compilation :
-
-```sh
-node --test tests/portal.test.mjs
-```
-
-Le test démarre un serveur de production sur le port 43127 avec une base temporaire indépendante. Il vérifie les routes, le contrôle d’origine, les accès gérant/client, les réservations concurrentes, les documents privés, la désactivation et la déconnexion. Aucun identifiant réel n’est utilisé.
-
-## Points à finaliser avant ouverture au public
-
-- Validation des textes, du nom commercial, des tarifs, des modalités et des conditions d’annulation.
-- Compléter les pages légales et de confidentialité avec les informations réelles, les durées de conservation et le contact pour les demandes.
-- Définir le parcours d’invitation, le changement et la récupération de mot de passe ; cette version utilise un mot de passe initial créé par le gérant.
-- Définir les règles de déblocage progressif des documents : seuils, séances éligibles, absences, corrections et dérogations. Aucun seuil arbitraire n’a été codé ; le partage est manuel.
-- Confirmer la durée des suivis et les règles de disponibilité.
-- Préparer l’hébergement persistant, les sauvegardes et HTTPS. Utiliser des données de test tant que ces points ne sont pas finalisés.
-
-Le projet est entièrement dans web/. Le design et les composants shadcn de develop sont conservés.
+- Textes (présentation, parcours, formations), tarifs et modalités.
+- Format présentiel : oui ou non.
+- Inscription libre : tout inscrit peut réserver une séance de suivi. Prévoir, si besoin, une limitation (anti-spam) et le parcours « mot de passe oublié ».
+- Place exacte des séminaires par rapport au coaching.
+- Pages légales et confidentialité (le champ « intention » peut contenir des informations sensibles).
+- Hébergement : Postgres installé sur le serveur, sauvegardes et HTTPS.
