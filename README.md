@@ -1,27 +1,16 @@
-# Site vitrine — cabinet de psychologie
+# Site web séminaires
 
-Maquette scolaire responsive réalisée avec HTML, CSS et JavaScript, suivant la palette et le logo fournis par le client.
+Application du groupe dans [`web/`](web/README.md), avec Next.js, Tailwind et shadcn/ui.
 
-## Ouvrir la maquette
-
-Ouvrir `dist/index.html` dans un navigateur, ou lancer `node preview.cjs` puis visiter http://127.0.0.1:4173.
-
-## Contenu
-
-Accueil, approche, accompagnements, FAQ et parcours de rendez-vous simulé. Le calendrier ne réserve aucun créneau et ne collecte aucune donnée personnelle.
-
-Le nom du praticien, ses qualifications, ses coordonnées, ses tarifs et les textes définitifs restent à valider avec le client.
-
-## Vérification
-
-Syntaxe JavaScript vérifiée avec `node --check dist/app.js`. Chargement HTTP local vérifié. Contrôle visuel et essais sur mobile à réaliser en équipe.
-
-## Application Next.js
-
-Le nouveau site (Next.js + shadcn/ui) est dans le dossier [`web/`](web/README.md) :
-
-```bash
+```sh
 cd web
-pnpm install
+pnpm install --frozen-lockfile
+```
+
+Copier `web/.env.example` vers `web/.env.local`, puis renseigner les identifiants du gérant avec un mot de passe unique de 12 caractères minimum.
+
+```sh
 pnpm dev
 ```
+
+Ouvrir http://localhost:3000. Consulter `web/README.md` pour les parcours, le stockage et les limites avant déploiement. Utiliser des données de test tant que les informations légales et les règles métier ne sont pas finalisées.

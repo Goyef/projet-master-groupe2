@@ -1,0 +1,210 @@
+.portal-ui {
+  color: var(--foreground);
+}
+.portal-ui .section {
+  max-width: 1152px;
+  margin: auto;
+  padding: 64px 24px;
+}
+.portal-ui h1 {
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.portal-ui h2 {
+  font-size: 32px;
+  margin-bottom: 20px;
+}
+.portal-ui h3 {
+  font-size: 25px;
+  margin-bottom: 16px;
+}
+.portal-ui p {
+  margin-bottom: 16px;
+}
+.portal-ui em {
+  font-style: normal;
+  color: var(--muted-foreground);
+}
+.portal-ui .eyebrow,
+.portal-ui .step {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.portal-ui .booking-panel,
+.portal-ui .admin-form {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 28px;
+}
+.portal-ui .booking-panel {
+  width: 100%;
+  max-width: 680px;
+}
+.portal-ui label {
+  display: block;
+  font-size: 14px;
+  margin: 18px 0;
+}
+.portal-ui input,
+.portal-ui select {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  margin-top: 7px;
+  background: var(--background);
+  color: var(--foreground);
+  min-width: 0;
+}
+.portal-ui input:focus-visible,
+.portal-ui select:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+.portal-ui .formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+.portal-ui .formats button {
+  height: auto;
+  min-height: 62px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+  text-align: center;
+  padding: 12px;
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+.portal-ui .formats button.selected {
+  background: var(--accent);
+  border-color: var(--ring);
+}
+.portal-ui small {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.portal-ui .field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.portal-ui .field-grid > *,
+.portal-ui .login-section > * {
+  min-width: 0;
+}
+.portal-ui .checkbox {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.portal-ui .checkbox input {
+  width: 16px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.portal-ui a {
+  text-underline-offset: 4px;
+}
+.portal-ui .checkbox a,
+.portal-ui .text-link,
+.portal-ui .document-list a {
+  text-decoration: underline;
+}
+.portal-ui .full {
+  width: 100%;
+  min-height: 42px;
+}
+.portal-ui .form-note {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin-top: 16px;
+}
+.portal-ui .form-message {
+  margin-top: 16px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.portal-ui .login-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+  min-height: 65vh;
+}
+.portal-ui .section-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: center;
+}
+.portal-ui .portal-section {
+  padding: 30px 0;
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.portal-ui .admin-form {
+  max-width: 700px;
+  margin: 20px 0;
+}
+.portal-ui .document-list {
+  list-style: none;
+  padding: 0;
+}
+.portal-ui .document-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+  overflow-wrap: anywhere;
+}
+.portal-ui .inline-action {
+  display: flex;
+  margin-top: 8px;
+}
+.portal-ui .table-scroll {
+  overflow-x: auto;
+}
+.portal-ui table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+.portal-ui th,
+.portal-ui td {
+  border-bottom: 1px solid var(--border);
+  padding: 14px;
+}
+.portal-ui th {
+  background: var(--accent);
+}
+@media (max-width: 767px) {
+  .portal-ui .section {
+    padding: 40px 16px;
+  }
+  .portal-ui .login-section,
+  .portal-ui .field-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .portal-ui .booking-panel,
+  .portal-ui .admin-form {
+    padding: 20px;
+  }
+}

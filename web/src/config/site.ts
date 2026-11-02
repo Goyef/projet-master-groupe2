@@ -27,5 +27,5 @@ export const seminarTopics = [
   { title: "Process Communication", description: "Adapter sa communication à chaque interlocuteur." },
   { title: "Gestion mentale", description: "Apprendre à apprendre et mobiliser ses ressources." },
   { title: "Estime de soi", description: "Prendre conscience de sa valeur et oser s'affirmer." },
-  { title: "Confiance en soi", description: "Déconstruire les freins et gagner en assurance." },
+  { title: "Déconstruction de la confiance en soi", description: "Explorer les représentations et les questionnements autour de la confiance en soi." },
 ] as const
