@@ -1,11 +1,9 @@
-const values = ["Un accueil sans jugement", "Une démarche à votre rythme", "Un accompagnement personnalisé"];
-
 export default function Values() {
   return (
     <div className="values">
-      {values.map((value) => (
-        <span key={value}>{value}</span>
-      ))}
+      <span>Des séminaires autour de vos enjeux</span>
+      <span>Un premier échange de 45 minutes</span>
+      <span>Un espace pour poursuivre l’accompagnement</span>
     </div>
   );
 }

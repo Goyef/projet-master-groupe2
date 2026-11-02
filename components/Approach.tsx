@@ -2,24 +2,26 @@ export default function Approach() {
   return (
     <section className="approach section" id="approche">
       <div>
-        <p className="eyebrow">L’APPROCHE</p>
+        <p className="eyebrow">DE L’ÉCHANGE À L’ACTION</p>
         <h2>
-          Vous n’avez pas besoin
+          Votre contexte.
           <br />
-          de trouver <em>les mots justes.</em>
+          <em>Notre point de départ.</em>
         </h2>
       </div>
       <div>
         <p>
-          La première rencontre est un temps pour faire connaissance, exprimer vos attentes et poser vos questions.
-          Vous avancez à votre rythme, dans un dialogue ouvert.
+          Chaque projet commence par un échange sur vos attentes. Un appel de
+          vente permet de découvrir votre besoin ; un audit séminaire permet
+          d’explorer votre projet plus en détail.
         </p>
         <p>
-          La présentation du praticien, ses qualifications et sa méthode seront ajoutées ici après validation par le
-          client.
+          PNL, MBTI, Ennéagramme, Process Communication : plusieurs outils et
+          thématiques peuvent nourrir les sessions. Le contenu et les modalités
+          du séminaire se construisent avec vous.
         </p>
-        <a className="text-link" href="#questions">
-          Comment se déroule une séance ? ↗
+        <a className="text-link" href="/seminaires">
+          Découvrir les thèmes proposés ↗
         </a>
       </div>
     </section>

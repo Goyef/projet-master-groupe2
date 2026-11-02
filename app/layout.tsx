@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cabinet — Un espace pour vous",
+  title: "Séminaires & accompagnement — Faire grandir les possibles",
   description:
-    "Cabinet de psychologie et d’accompagnement : un espace d’écoute pour faire le premier pas, à votre rythme.",
+    "Découvrez les séminaires, réservez un appel ou un audit et retrouvez votre accompagnement dans votre espace client.",
   icons: { icon: "/logo.png" },
 };
 
@@ -14,7 +14,11 @@ export const viewport: Viewport = {
   themeColor: "#0A1D35",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="fr">
       <body>{children}</body>

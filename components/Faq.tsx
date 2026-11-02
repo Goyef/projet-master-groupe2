@@ -1,32 +1,37 @@
 const questions = [
   {
-    question: "Comment se passe le premier rendez-vous ?",
+    question: "Quel rendez-vous choisir ?",
     answer:
-      "Il permet d’échanger sur votre demande, de découvrir le cadre proposé et de vérifier ensemble qu’il correspond à vos attentes. Le déroulement exact sera précisé par le praticien.",
+      "L’appel de vente est un premier échange pour découvrir votre besoin. L’audit permet de faire le point sur votre projet de séminaire. Chacun dure 45 minutes.",
   },
   {
-    question: "Quels sont les tarifs et la durée d’une séance ?",
+    question: "L’audit est-il ouvert aux clients existants ?",
     answer:
-      "Les tarifs, la durée, les moyens de paiement et les conditions d’annulation seront renseignés après validation du client.",
+      "Oui, l’audit séminaire est accessible aux prospects comme aux clients signés.",
   },
   {
-    question: "Puis-je consulter à distance ?",
+    question: "Comment accéder aux séances de suivi ?",
     answer:
-      "La maquette prévoit une option visioconférence. Sa disponibilité et ses modalités restent à confirmer avec le praticien.",
+      "Le gérant crée votre compte client. Connectez-vous ensuite à votre espace personnel pour réserver un suivi, consulter vos rendez-vous et retrouver vos documents.",
   },
   {
-    question: "Comment contacter le cabinet ?",
-    answer: "Le téléphone, l’adresse et l’e-mail professionnels seront affichés ici une fois transmis par le client.",
+    question: "Quels thèmes peut-on aborder ?",
+    answer:
+      "PNL, MBTI, Ennéagramme, team building, gestion de conflit, Process Communication, gestion mentale, estime de soi et déconstruction de la confiance en soi.",
+  },
+  {
+    question: "Comment se déroule le rendez-vous et quels sont les tarifs ?",
+    answer:
+      "Le lieu, le format, les tarifs et les conditions d’annulation restent à préciser avec le gérant. Aucun paiement en ligne n’est proposé.",
   },
 ];
-
 export default function Faq() {
   return (
     <section className="faq section" id="questions">
       <div>
         <p className="eyebrow">VOS QUESTIONS</p>
         <h2>
-          Avant de <em>se rencontrer.</em>
+          Avant de <em>nous rencontrer.</em>
         </h2>
       </div>
       <div>

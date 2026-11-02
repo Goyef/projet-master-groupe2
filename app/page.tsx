@@ -11,7 +11,10 @@ import Footer from "@/components/Footer";
 export default function Home() {
   return (
     <>
-      <div className="demo">PROPOSITION DE MAQUETTE · Identité et contenus à valider avec le client</div>
+      <div className="demo">
+        PROJET SCOLAIRE · Textes proposés à valider par le gérant · Utiliser des
+        données de test
+      </div>
       <Header />
       <main>
         <Hero />
