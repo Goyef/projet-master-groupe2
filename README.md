@@ -15,3 +15,13 @@ Le nom du praticien, ses qualifications, ses coordonnées, ses tarifs et les tex
 ## Vérification
 
 Syntaxe JavaScript vérifiée avec `node --check dist/app.js`. Chargement HTTP local vérifié. Contrôle visuel et essais sur mobile à réaliser en équipe.
+
+## Application Next.js
+
+Le nouveau site (Next.js + shadcn/ui) est dans le dossier [`web/`](web/README.md) :
+
+```bash
+cd web
+pnpm install
+pnpm dev
+```
