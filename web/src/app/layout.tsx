@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google"
 
 import { siteConfig } from "@/config/site"
 import "./globals.css"
+import "@/components/portal/portal.css"
 
 const body = Inter({
   variable: "--font-body",

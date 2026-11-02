@@ -17,8 +17,8 @@ const pillars = [
   },
   {
     icon: SparklesIcon,
-    title: "Des outils éprouvés",
-    description: "PNL, MBTI, Ennéagramme, Process Communication : des approches reconnues et concrètes.",
+    title: "Plusieurs approches à explorer",
+    description: "PNL, MBTI, Ennéagramme, Process Communication : des thèmes à préciser ensemble selon votre projet.",
   },
   {
     icon: CalendarCheckIcon,

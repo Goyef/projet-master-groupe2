@@ -1,4 +1,9 @@
-.openai/
-node_modules/
-.env
-.env.*
+# Outils locaux et données de travail hors application web
+/node_modules/
+/.next/
+/.openai/
+/.data/
+.env*
+!.env.example
+/next-env.d.ts
+*.tsbuildinfo
