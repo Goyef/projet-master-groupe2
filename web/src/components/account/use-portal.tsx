@@ -41,7 +41,9 @@ export type PortalData = {
     passwordTemporary: boolean
   } | null
   appointments?: Appointment[]
-  documents?: { id: number; title: string; user_id: number | null }[]
+  // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
+  documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
+  completedSessions?: number
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
 }

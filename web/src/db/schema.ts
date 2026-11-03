@@ -81,6 +81,8 @@ export const documents = pgTable("documents", {
   userId: integer("user_id").references(() => users.id, {
     onDelete: "cascade",
   }),
+  // Parcours : nombre de séances réalisées nécessaires pour y accéder (0 = tout de suite).
+  requiredSessions: integer("required_sessions").notNull().default(0),
 });
 
 export const loginAttempts = pgTable("login_attempts", {
