@@ -39,10 +39,10 @@ export type BookingFormProps = {
   onBooked?: () => void
 }
 
-const durations: Record<AppointmentType, number> = { vente: 45, audit: 45, individuelle: 60, suivi: 60 }
+const durations: Record<AppointmentType, number> = { vente: 45, audit: 45, suivi: 60 }
 
 export function BookingForm({ dict, client = false, defaultPhone, onBooked }: BookingFormProps) {
-  const choices: AppointmentType[] = client ? ["individuelle", "suivi", "audit"] : ["vente", "audit"]
+  const choices: AppointmentType[] = client ? ["suivi", "audit"] : ["vente", "audit"]
   const [type, setType] = useState<AppointmentType>(choices[0])
   const [meetingFormat, setMeetingFormat] = useState<string>(siteConfig.meetingFormats[0])
   const [slots, setSlots] = useState<Slot[]>([])
@@ -156,7 +156,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
                   setSlot("")
                   setResult(null)
                 }}
-                className={client ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}
+                className="grid-cols-1 sm:grid-cols-2"
               >
                 {choices.map((choice) => (
                   <FieldLabel key={choice} htmlFor={`type-${choice}`}>

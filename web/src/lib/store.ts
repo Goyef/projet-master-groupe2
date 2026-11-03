@@ -14,12 +14,10 @@ import { Pool } from "pg";
 import * as schema from "@/db/schema";
 import { appointments, documents, loginAttempts, sessions, slots, users } from "@/db/schema";
 
-// `clientOnly` : réservable uniquement depuis l'espace client (compte connecté).
 export const types = {
-  vente: { minutes: 45, clientOnly: false },
-  audit: { minutes: 45, clientOnly: false },
-  individuelle: { minutes: 60, clientOnly: true },
-  suivi: { minutes: 60, clientOnly: true },
+  vente: { minutes: 45 },
+  audit: { minutes: 45 },
+  suivi: { minutes: 60 },
 };
 export type AppointmentType = keyof typeof types;
 export type MeetingFormat = "visio" | "presentiel";
@@ -171,7 +169,7 @@ export type BookingInput = {
 
 // Réserve un créneau. L'unicité de slot_id empêche deux réservations concurrentes.
 export async function reserve(input: BookingInput) {
-  if (types[input.type].clientOnly && input.user?.role !== "client")
+  if (input.type === "suivi" && input.user?.role !== "client")
     throw new AppError("clientRequired", 401);
   const database = await db();
   const [slot] = await database

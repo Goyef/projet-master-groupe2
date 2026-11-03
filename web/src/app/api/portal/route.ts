@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     const action = params.get("action");
     if (action === "slots") {
       const type = appointmentType(params.get("type"));
-      if (types[type].clientOnly && user?.role !== "client")
+      if (type === "suivi" && user?.role !== "client")
         return failure("clientRequired", 401);
       return response({ slots: await availableSlots(type) });
     }
