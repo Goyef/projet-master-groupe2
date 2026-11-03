@@ -11,22 +11,28 @@ import {
   changePassword,
   completedSessions,
   createClient,
+  createTicket,
   currentUser,
   getDocument,
   listAppointments,
   listClients,
   listDocuments,
+  listTickets,
   listUpcomingSlots,
   login,
   logout,
   MAX_REQUIRED_SESSIONS,
   removeDocument,
   removeSlot,
+  replyTicket,
   rescheduleAppointment,
   resetClientPassword,
   reserve,
+  setTicketStatus,
   SLOT_LENGTHS,
   type SlotLength,
+  TICKET_STATUSES,
+  type TicketStatus,
   toggleClient,
   toggleCompleted,
   types,
@@ -106,6 +112,13 @@ function meetingFormat(value: unknown): MeetingFormat {
   return value as MeetingFormat;
 }
 
+function ticketStatus(value: unknown): TicketStatus {
+  const statuses: readonly string[] = TICKET_STATUSES;
+  if (typeof value !== "string" || !statuses.includes(value))
+    throw new AppError("invalidField", 400, "status");
+  return value as TicketStatus;
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   try {
@@ -132,9 +145,10 @@ export async function GET(request: NextRequest) {
     }
     if (!user) return response({ user: null });
     const admin = user.role === "admin";
-    const [appointments, documents, clients, slots, sessions] = await Promise.all([
+    const [appointments, documents, tickets, clients, slots, sessions] = await Promise.all([
       listAppointments(user),
       listDocuments(user),
+      listTickets(user),
       admin ? listClients() : undefined,
       admin ? listUpcomingSlots() : undefined,
       admin ? undefined : completedSessions(user.id),
@@ -149,6 +163,7 @@ export async function GET(request: NextRequest) {
       },
       appointments,
       documents,
+      tickets,
       ...(admin ? { clients, slots } : { completedSessions: sessions }),
     });
   } catch (error) {
@@ -230,6 +245,15 @@ export async function POST(request: NextRequest) {
         starts: appointment.starts.getTime(),
       });
     }
+    if (data.action === "create-ticket") {
+      if (user?.role !== "client") return failure("loginRequired", 401);
+      const ticket = await createTicket(
+        user,
+        text(data, "subject"),
+        text(data, "message", 4000),
+      );
+      return response({ ok: true, reference: ticket.id });
+    }
     // Gestion de ses rendez-vous et de son profil par le client connecté.
     if (
       typeof data.action === "string" &&
@@ -295,6 +319,10 @@ export async function POST(request: NextRequest) {
       await removeSlot(id(data.id));
     } else if (data.action === "complete") {
       await toggleCompleted(id(data.id));
+    } else if (data.action === "reply-ticket") {
+      await replyTicket(id(data.id), text(data, "message", 4000));
+    } else if (data.action === "ticket-status") {
+      await setTicketStatus(id(data.id), ticketStatus(data.status));
     } else if (data.action === "remove-document") {
       await removeDocument(id(data.id));
     } else {

@@ -10,7 +10,7 @@ const adminUrl =
   "postgres://synego:synego@localhost:5432/synego";
 
 test(
-  "réservation, comptes et isolation des documents",
+  "réservation, comptes, isolation des documents et demandes de support",
   { timeout: 60000 },
   async () => {
     // Base temporaire indépendante, supprimée à la fin du test.
@@ -21,7 +21,7 @@ test(
     const databaseUrl = new URL(adminUrl);
     databaseUrl.pathname = "/" + database;
     const password = randomBytes(20).toString("hex");
-    const port = 43127,
+    const port = Number(process.env.TEST_PORT) || 43127,
       origin = `http://127.0.0.1:${port}`;
     const server = spawn(
       process.execPath,
@@ -546,6 +546,107 @@ test(
         (await request(documentUrl, "", "GET")).response.status,
         401,
       );
+      // Espace de tickets : une demande est déposée, suivie, puis clôturée.
+      assert.equal(
+        (await request({ action: "create-ticket", subject: "Sans compte", message: "…" }))
+          .response.status,
+        401,
+      );
+      const emptyTicket = await request(
+        { action: "create-ticket", subject: "Facture", message: "  " },
+        alice,
+      );
+      assert.equal(emptyTicket.response.status, 400);
+      assert.equal(emptyTicket.data.field, "message");
+      const createdTicket = await request(
+        {
+          action: "create-ticket",
+          subject: "Accès au document",
+          message: "Je n'arrive pas à ouvrir le PDF partagé.",
+        },
+        alice,
+      );
+      assert.equal(createdTicket.response.status, 200);
+      const ticketId = createdTicket.data.reference;
+      assert.equal(
+        (
+          await request(
+            { action: "create-ticket", subject: "Question de Bob", message: "Bonjour." },
+            bob,
+          )
+        ).response.status,
+        200,
+      );
+      // Chaque client ne voit que ses demandes, sans pouvoir les traiter.
+      const aliceTickets = (await request("", alice, "GET")).data.tickets;
+      assert.deepEqual(
+        aliceTickets.map((ticket) => [ticket.subject, ticket.status]),
+        [["Accès au document", "open"]],
+      );
+      assert.equal(aliceTickets[0].email, undefined);
+      assert.deepEqual(
+        (await request("", bob, "GET")).data.tickets.map((ticket) => ticket.subject),
+        ["Question de Bob"],
+      );
+      for (const action of [
+        { action: "reply-ticket", id: ticketId, message: "Je me réponds." },
+        { action: "ticket-status", id: ticketId, status: "closed" },
+      ])
+        assert.equal((await request(action, bob)).response.status, 403);
+      // Le gérant voit toutes les demandes, répond (la demande passe en cours) puis clôture.
+      const adminTickets = (await request("", admin, "GET")).data.tickets;
+      assert.equal(adminTickets.length, 2);
+      assert.equal(
+        adminTickets.find((ticket) => ticket.id === ticketId).email,
+        "alice@example.test",
+      );
+      assert.equal(
+        (await request({ action: "reply-ticket", id: 999999, message: "?" }, admin))
+          .response.status,
+        404,
+      );
+      assert.equal(
+        (
+          await request(
+            { action: "ticket-status", id: ticketId, status: "archivé" },
+            admin,
+          )
+        ).response.status,
+        400,
+      );
+      assert.equal(
+        (
+          await request(
+            {
+              action: "reply-ticket",
+              id: ticketId,
+              message: "Le document a été partagé à nouveau.",
+            },
+            admin,
+          )
+        ).response.status,
+        200,
+      );
+      const followed = (await request("", alice, "GET")).data.tickets[0];
+      assert.equal(followed.status, "in_progress");
+      assert.deepEqual(
+        followed.replies.map((reply) => reply.message),
+        ["Le document a été partagé à nouveau."],
+      );
+      assert.equal(
+        (await request({ action: "ticket-status", id: ticketId, status: "closed" }, admin))
+          .response.status,
+        200,
+      );
+      const closed = (await request("", alice, "GET")).data.tickets[0];
+      assert.equal(closed.status, "closed");
+      assert.ok(closed.closedAt);
+      const lateReply = await request(
+        { action: "reply-ticket", id: ticketId, message: "Encore une chose." },
+        admin,
+      );
+      assert.equal(lateReply.response.status, 409);
+      assert.equal(lateReply.data.code, "ticketClosed");
       // Parcours : un document se débloque après un nombre de séances réalisées.
       const bobId = clients.find((client) => client.email === "bob@example.test").id;
       const share = (title, requiredSessions) => {

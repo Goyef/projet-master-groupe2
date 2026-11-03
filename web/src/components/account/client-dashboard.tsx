@@ -16,6 +16,7 @@ import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
 import { AppointmentActions } from "./appointment-actions"
+import { ClientSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
 type ClientDashboardProps = {
@@ -26,10 +27,10 @@ type ClientDashboardProps = {
   portal: Portal
 }
 
-type Section = "appointments" | "book" | "documents" | "profile"
+type Section = "appointments" | "book" | "documents" | "support" | "profile"
 type Filter = "upcoming" | "past" | "cancelled"
 
-// Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents et profil.
+// Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents, support et profil.
 export function ClientDashboard({ dict, bookingDict, types, formats, portal }: ClientDashboardProps) {
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor, refresh, setMessage } = portal
   const [section, setSection] = useState<Section>("appointments")
@@ -142,6 +143,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             <TabsTrigger value="appointments">{text.tabAppointments}</TabsTrigger>
             <TabsTrigger value="book">{text.tabBook}</TabsTrigger>
             <TabsTrigger value="documents">{text.tabDocuments}</TabsTrigger>
+            <TabsTrigger value="support">{text.tabSupport}</TabsTrigger>
             <TabsTrigger value="profile">{text.tabProfile}</TabsTrigger>
           </TabsList>
         </div>
@@ -258,6 +260,10 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="support" className="pt-4">
+          <ClientSupport dict={dict.support} portal={portal} />
         </TabsContent>
 
         <TabsContent value="profile" className="grid gap-6 pt-4 lg:grid-cols-2">

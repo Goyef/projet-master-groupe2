@@ -13,7 +13,16 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
 import * as schema from "@/db/schema";
-import { appointments, documents, loginAttempts, sessions, slots, users } from "@/db/schema";
+import {
+  appointments,
+  documents,
+  loginAttempts,
+  sessions,
+  slots,
+  ticketReplies,
+  tickets,
+  users,
+} from "@/db/schema";
 
 export const types = {
   vente: { minutes: 45 },
@@ -22,6 +31,8 @@ export const types = {
 };
 export type AppointmentType = keyof typeof types;
 export type MeetingFormat = "visio" | "presentiel";
+export const TICKET_STATUSES = ["open", "in_progress", "closed"] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export type User = {
   id: number;
   name: string;
@@ -574,6 +585,90 @@ export async function addDocument(
 export async function removeDocument(id: number) {
   const database = await db();
   await database.delete(documents).where(eq(documents.id, id));
+}
+
+// --- Demandes de support ---------------------------------------------------
+
+// Le client ne voit que ses demandes ; le gérant les voit toutes, avec le nom du client.
+export async function listTickets(user: User) {
+  const database = await db();
+  const rows = await database
+    .select({
+      id: tickets.id,
+      subject: tickets.subject,
+      message: tickets.message,
+      status: tickets.status,
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+      closedAt: tickets.closedAt,
+      userId: tickets.userId,
+      name: users.name,
+      email: users.email,
+    })
+    .from(tickets)
+    .innerJoin(users, eq(users.id, tickets.userId))
+    .where(user.role === "admin" ? undefined : eq(tickets.userId, user.id))
+    .orderBy(desc(tickets.updatedAt));
+  const replies = rows.length
+    ? await database
+        .select()
+        .from(ticketReplies)
+        .where(inArray(ticketReplies.ticketId, rows.map((row) => row.id)))
+        .orderBy(asc(ticketReplies.createdAt))
+    : [];
+  return rows.map((row) => ({
+    id: row.id,
+    subject: row.subject,
+    message: row.message,
+    status: row.status,
+    createdAt: row.createdAt.getTime(),
+    updatedAt: row.updatedAt.getTime(),
+    closedAt: row.closedAt?.getTime() ?? null,
+    ...(user.role === "admin" ? { userId: row.userId, name: row.name, email: row.email } : {}),
+    replies: replies
+      .filter((reply) => reply.ticketId === row.id)
+      .map((reply) => ({ id: reply.id, message: reply.message, createdAt: reply.createdAt.getTime() })),
+  }));
+}
+
+export async function createTicket(user: User, subject: string, message: string) {
+  const database = await db();
+  const [created] = await database
+    .insert(tickets)
+    .values({ userId: user.id, subject, message })
+    .returning({ id: tickets.id });
+  return created;
+}
+
+// Réponse du gérant : une demande ouverte passe automatiquement « en cours ».
+export async function replyTicket(id: number, message: string) {
+  const database = await db();
+  return database.transaction(async (tx) => {
+    const [ticket] = await tx
+      .update(tickets)
+      .set({
+        status: sql`CASE WHEN ${tickets.status} = 'open' THEN 'in_progress' ELSE ${tickets.status} END`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(tickets.id, id), sql`${tickets.status} <> 'closed'`))
+      .returning({ id: tickets.id });
+    if (!ticket) {
+      const [exists] = await tx.select({ id: tickets.id }).from(tickets).where(eq(tickets.id, id));
+      throw exists ? new AppError("ticketClosed", 409) : new AppError("ticketNotFound", 404);
+    }
+    await tx.insert(ticketReplies).values({ ticketId: id, message });
+  });
+}
+
+export async function setTicketStatus(id: number, status: TicketStatus) {
+  const database = await db();
+  const now = new Date();
+  const updated = await database
+    .update(tickets)
+    .set({ status, updatedAt: now, closedAt: status === "closed" ? now : null })
+    .where(eq(tickets.id, id))
+    .returning({ id: tickets.id });
+  if (!updated.length) throw new AppError("ticketNotFound", 404);
 }
 
 // --- Connexion -------------------------------------------------------------
