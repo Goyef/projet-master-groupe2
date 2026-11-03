@@ -81,7 +81,7 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
       {
         scope,
         success: (result) => {
-          starts = result.starts
+          starts = Number(result.starts)
           return ""
         },
       },

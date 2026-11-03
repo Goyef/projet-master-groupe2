@@ -23,9 +23,23 @@ export type Appointment = {
   // Le client peut encore l'annuler ou le déplacer (plus de 24 h avant).
   changeable: boolean
 }
-export type Client = { id: number; name: string; email: string; phone: string | null; active: boolean }
+export type Client = {
+  id: number
+  name: string
+  email: string
+  phone: string | null
+  active: boolean
+  // Le client n'a pas encore remplacé le mot de passe provisoire généré par le gérant.
+  passwordTemporary: boolean
+}
 export type PortalData = {
-  user: { name: string; email: string; role: "admin" | "client"; phone: string | null } | null
+  user: {
+    name: string
+    email: string
+    role: "admin" | "client"
+    phone: string | null
+    passwordTemporary: boolean
+  } | null
   appointments?: Appointment[]
   // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
   documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
@@ -37,7 +51,7 @@ export type PortalData = {
 // `scope` : carte où afficher le message (à côté du formulaire utilisé) ; absent = haut de page.
 // `field` : champ fautif renvoyé par l'API ; l'erreur s'affiche alors sous ce champ.
 export type Message = { ok: boolean; text: string; scope?: string; field?: string }
-export type ActOptions = { success?: (result: Record<string, number>) => string; scope?: string }
+export type ActOptions = { success?: (result: Record<string, string | number>) => string; scope?: string }
 
 // État partagé de l'espace connecté : données, envoi des actions et messages de retour.
 export function usePortal(networkError: string, savedText: string) {

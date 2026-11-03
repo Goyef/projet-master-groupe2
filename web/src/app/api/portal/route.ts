@@ -10,6 +10,7 @@ import {
   cancelAppointment,
   changePassword,
   completedSessions,
+  createClient,
   currentUser,
   getDocument,
   listAppointments,
@@ -21,8 +22,8 @@ import {
   MAX_REQUIRED_SESSIONS,
   removeDocument,
   removeSlot,
-  registerClient,
   rescheduleAppointment,
+  resetClientPassword,
   reserve,
   SLOT_LENGTHS,
   type SlotLength,
@@ -139,7 +140,13 @@ export async function GET(request: NextRequest) {
       admin ? undefined : completedSessions(user.id),
     ]);
     return response({
-      user: { name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        passwordTemporary: user.passwordTemporary,
+      },
       appointments,
       documents,
       ...(admin ? { clients, slots } : { completedSessions: sessions }),
@@ -196,19 +203,6 @@ export async function POST(request: NextRequest) {
       return withSession(
         await login(email(data), text(data, "password", 256)),
       );
-    if (data.action === "register") {
-      if (data.consent !== true) throw new AppError("consentRequired");
-      const password = text(data, "password", 256);
-      if (password.length < 12) throw new AppError("passwordTooShort");
-      return withSession(
-        await registerClient(
-          text(data, "name"),
-          email(data),
-          phone(data),
-          password,
-        ),
-      );
-    }
     if (data.action === "logout") {
       const token = request.cookies.get("session")?.value;
       if (token) await logout(token);
@@ -265,6 +259,15 @@ export async function POST(request: NextRequest) {
       return response({ ok: true });
     }
     if (user?.role !== "admin") return failure("adminRequired", 403);
+    // Les comptes clients sont créés par le gérant : le mot de passe provisoire
+    // n'est renvoyé qu'ici, une seule fois, pour qu'il le transmette au client.
+    if (data.action === "create-client") {
+      const password = await createClient(text(data, "name"), email(data), phone(data));
+      return response({ ok: true, password });
+    }
+    if (data.action === "reset-client-password") {
+      return response({ ok: true, password: await resetClientPassword(id(data.id)) });
+    }
     if (data.action === "toggle-client") {
       await toggleClient(id(data.id));
     } else if (data.action === "add-slot") {

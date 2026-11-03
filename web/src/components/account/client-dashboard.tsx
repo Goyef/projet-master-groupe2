@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarPlusIcon, ClockIcon, DownloadIcon, LockIcon, LogOutIcon } from "lucide-react"
+import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon } from "lucide-react"
 
 import { BookingForm, type BookingFormProps } from "@/components/booking/booking-form"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -80,6 +81,20 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
         </Button>
       </div>
       {feedbackFor()}
+      {user.passwordTemporary && (
+        <Alert>
+          <KeyRoundIcon />
+          <AlertTitle>{text.temporaryTitle}</AlertTitle>
+          <AlertDescription>
+            <p>{text.temporaryText}</p>
+            {section !== "profile" && (
+              <Button size="sm" onClick={() => setSection("profile")}>
+                {text.temporaryCta}
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="bg-primary text-primary-foreground ring-0">
         <CardHeader>
@@ -264,7 +279,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="profile-name" data-invalid={isInvalid("profile", "name")}>
-                      {dict.registerName}
+                      {dict.fullName}
                     </FieldLabel>
                     <Input
                       id="profile-name"
@@ -279,7 +294,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="profile-phone" data-invalid={isInvalid("profile", "phone")}>
-                      {dict.registerPhone}
+                      {dict.phone}
                     </FieldLabel>
                     <Input
                       id="profile-phone"
@@ -319,7 +334,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                   <input type="email" name="username" autoComplete="username" value={user.email} readOnly hidden />
                   <Field>
                     <FieldLabel htmlFor="current-password" data-invalid={isInvalid("password", "currentPassword")}>
-                      {text.currentPassword}
+                      {user.passwordTemporary ? text.currentPasswordTemporary : text.currentPassword}
                     </FieldLabel>
                     <Input
                       id="current-password"

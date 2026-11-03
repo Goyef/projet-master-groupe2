@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1793697354334,
-      "tag": "0002_parcours_documents",
+      "when": 1793697344514,
+      "tag": "0002_mot_de_passe_provisoire",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793698091878,
+      "tag": "0003_parcours_documents",
       "breakpoints": true
     }
   ]
