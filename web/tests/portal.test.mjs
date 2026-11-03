@@ -343,6 +343,18 @@ test(
       assert.ok(googleEvent.description.includes(prospect.phone));
       assert.ok(googleEvent.description.includes("https://synego.example.test/connexion"));
       assert.ok(!googleEvent.description.includes(prospect.intention));
+      // Même demande renvoyée (double clic, réseau) : la réservation est confirmée à nouveau,
+      // pas refusée comme « créneau déjà réservé ». Une autre personne reste refusée.
+      const repeatedProspect = await request({ ...prospect, slot: prospectSlot });
+      assert.equal(repeatedProspect.response.status, 200);
+      assert.equal(repeatedProspect.data.reference, booked.data.reference);
+      const otherProspect = await request({
+        ...prospect,
+        slot: prospectSlot,
+        email: "quelqu-un-d-autre@example.test",
+      });
+      assert.equal(otherProspect.response.status, 409);
+      assert.equal(otherProspect.data.code, "slotTaken");
       const adminView = (await request("", admin, "GET")).data;
       assert.equal(adminView.appointments[0].phone, prospect.phone);
       assert.equal(adminView.appointments[0].intention, prospect.intention);
@@ -436,6 +448,51 @@ test(
         competing.map((value) => value.response.status).sort(),
         [200, 409],
       );
+      // Ticket : créneau créé par le gérant, réservé par un client dont la demande part deux fois.
+      const doubleStart = starts + 6 * 86400000;
+      assert.equal(
+        (
+          await request(
+            { action: "add-slot", starts: doubleStart, ends: doubleStart + 3600000, minutes: 60 },
+            admin,
+          )
+        ).response.status,
+        200,
+      );
+      const doubleSlot = (await request("?action=slots&type=suivi", registeredSession, "GET")).data.slots.find(
+        (item) => item.starts === doubleStart,
+      ).id;
+      const doubleBooking = {
+        action: "reserve",
+        type: "suivi",
+        format: "visio",
+        slot: doubleSlot,
+        phone: "06 11 22 33 44",
+        intention: "Séance réservée deux fois par erreur.",
+        consent: true,
+      };
+      const twice = await Promise.all([
+        request(doubleBooking, registeredSession),
+        request(doubleBooking, registeredSession),
+      ]);
+      assert.deepEqual(
+        twice.map((value) => value.response.status),
+        [200, 200],
+      );
+      assert.equal(twice[0].data.reference, twice[1].data.reference);
+      const again = await request(doubleBooking, registeredSession);
+      assert.equal(again.response.status, 200);
+      assert.equal(again.data.reference, twice[0].data.reference);
+      assert.equal(
+        (await request("", registeredSession, "GET")).data.appointments.filter(
+          (item) => item.starts === doubleStart,
+        ).length,
+        1,
+      );
+      // Un autre client voit toujours le créneau comme pris.
+      const stolen = await request({ ...doubleBooking, phone: "06 00 00 00 00" }, bob);
+      assert.equal(stolen.response.status, 409);
+      assert.equal(stolen.data.code, "slotTaken");
       assert.ok(
         !(await request("?action=slots&type=audit", "", "GET")).data.slots.some(
           (item) => item.id === slot,

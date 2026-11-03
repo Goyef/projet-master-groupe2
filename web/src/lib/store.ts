@@ -145,12 +145,16 @@ export function verifyPassword(password: string, hash: string) {
 export function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
-export function isUniqueViolation(error: unknown) {
-  const cause = (error as { cause?: { code?: string } })?.cause;
-  return (
-    (error as { code?: string })?.code === "23505" || cause?.code === "23505"
+type PgError = { code?: string; constraint?: string };
+// Violation d'unicité ; avec `constraint`, seulement sur cette contrainte précise.
+export function isUniqueViolation(error: unknown, constraint?: string) {
+  const errors = [error as PgError, (error as { cause?: PgError })?.cause];
+  return errors.some(
+    (item) => item?.code === "23505" && (!constraint || item.constraint === constraint),
   );
 }
+// Contrainte qui garantit qu'un créneau ne porte qu'un seul rendez-vous.
+const SLOT_UNIQUE = "appointments_slot_id_unique";
 
 export async function currentUser(token?: string): Promise<User | null> {
   if (!token) return null;
@@ -211,6 +215,32 @@ export type BookingInput = {
   user: User | null;
 };
 
+// Une même demande envoyée deux fois (double clic, réseau qui renvoie la requête…) :
+// le créneau est déjà pris, mais par cette même personne. On lui confirme alors sa
+// réservation au lieu de lui répondre « créneau déjà réservé ».
+const REPEAT_WINDOW_MS = 10 * 60_000;
+async function sameRequesterBooking(input: BookingInput, slotId: number) {
+  const database = await db();
+  const [existing] = await database
+    .select()
+    .from(appointments)
+    .where(
+      and(
+        eq(appointments.slotId, slotId),
+        eq(appointments.type, input.type),
+        eq(appointments.status, "confirmed"),
+        input.user
+          ? eq(appointments.userId, input.user.id)
+          : and(
+              sql`${appointments.userId} IS NULL`,
+              eq(appointments.email, input.email),
+              gt(appointments.createdAt, new Date(Date.now() - REPEAT_WINDOW_MS)),
+            ),
+      ),
+    );
+  return existing ?? null;
+}
+
 // Réserve un créneau. L'unicité de slot_id empêche deux réservations concurrentes.
 export async function reserve(input: BookingInput) {
   if (input.type === "suivi" && input.user?.role !== "client")
@@ -220,7 +250,11 @@ export async function reserve(input: BookingInput) {
     .select()
     .from(slots)
     .where(and(eq(slots.id, input.slotId), freeSlot(types[input.type].minutes)));
-  if (!slot) throw new AppError("slotTaken", 409);
+  if (!slot) {
+    const repeated = await sameRequesterBooking(input, input.slotId);
+    if (repeated) return repeated;
+    throw new AppError("slotTaken", 409);
+  }
   try {
     const [created] = await database
       .insert(appointments)
@@ -242,7 +276,13 @@ export async function reserve(input: BookingInput) {
       .returning();
     return created;
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AppError("slotTaken", 409);
+    // Seule la contrainte du créneau signifie « déjà réservé » ; toute autre erreur
+    // (séquence d'identifiants désynchronisée, par exemple) doit rester visible dans les journaux.
+    if (isUniqueViolation(error, SLOT_UNIQUE)) {
+      const repeated = await sameRequesterBooking(input, slot.id);
+      if (repeated) return repeated;
+      throw new AppError("slotTaken", 409);
+    }
     throw error;
   }
 }
@@ -341,7 +381,7 @@ export async function rescheduleAppointment(user: User, id: number, slotId: numb
     if (!updated) throw new AppError("tooLateToChange", 409);
     return updated;
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AppError("slotTaken", 409);
+    if (isUniqueViolation(error, SLOT_UNIQUE)) throw new AppError("slotTaken", 409);
     throw error;
   }
 }

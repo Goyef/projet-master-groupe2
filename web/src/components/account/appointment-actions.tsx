@@ -2,7 +2,7 @@
 
 import { useDateFormatter, useLocalizedFetch } from "@/components/i18n/locale-provider"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CalendarClockIcon, XIcon } from "lucide-react"
 
 import { SlotPicker, type Slot } from "@/components/booking/slot-picker"
@@ -78,7 +78,11 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
     return () => controller.abort()
   }, [open, appointment.type, scope, setMessage, localizedFetch])
 
+  // Un seul déplacement à la fois : un double clic n'envoie pas deux demandes.
+  const submitting = useRef(false)
   async function confirm() {
+    if (submitting.current) return
+    submitting.current = true
     let starts = 0
     const done = await act(
       { action: "reschedule", id: appointment.id, slot: Number(slot) },
@@ -89,7 +93,9 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
           return ""
         },
       },
-    )
+    ).finally(() => {
+      submitting.current = false
+    })
     if (!done) return
     setOpen(false)
     setMessage({ ok: true, text: format(dict.rescheduled, { date: formatDateTime(starts) }), scope: "appointments" })
