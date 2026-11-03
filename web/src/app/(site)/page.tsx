@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getTexts, canonicalUrl } from "@/lib/i18n-server"
-import portraitYoucef from "../../../public/brand/portrait-youcef.png"
+import portraitYoucef from "../../../public/brand/youcef.png"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
