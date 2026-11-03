@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
+import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
 const ALL_CLIENTS = "all"
@@ -41,7 +42,7 @@ function statusBadge(item: Appointment, dict: Texts["portal"]) {
   )
 }
 
-// Espace gérant : rendez-vous, documents, disponibilités et comptes clients.
+// Espace gérant : rendez-vous, demandes de support, documents, disponibilités et comptes clients.
 export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardProps) {
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor } = portal
   if (!data?.user) return null
@@ -115,6 +116,8 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
           )}
         </CardContent>
       </Card>
+
+      <AdminSupport dict={dict.support} portal={portal} />
 
       <Card>
         <CardHeader>

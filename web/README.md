@@ -37,8 +37,9 @@ pnpm dev              # http://localhost:3000
 - **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
 - **Annulation / déplacement** : un client connecté annule ou déplace lui-même son rendez-vous depuis son espace, jusqu'à 24 h avant (règle vérifiée côté serveur). Le créneau libéré redevient réservable ; le rendez-vous annulé reste dans l'historique. En deçà de 24 h, ou pour un rendez-vous pris sans compte, la personne prévient Youcef.
 - **Comptes clients** (`/connexion`, onglet « Créer un compte ») : chaque client crée lui-même son compte (nom, e-mail, téléphone, mot de passe de 12 caractères minimum) et est connecté immédiatement. Le gérant ne crée pas de compte ; il voit la liste des clients et peut désactiver ou réactiver un compte.
-- **Espace client** : prochain rendez-vous mis en avant ; rendez-vous à venir, passés et annulés, avec annulation et déplacement ; réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli ; documents partagés ; profil (nom, téléphone) et changement de mot de passe, qui déconnecte les autres appareils.
-- **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, liste des comptes clients.
+- **Espace client** : prochain rendez-vous mis en avant ; rendez-vous à venir, passés et annulés, avec annulation et déplacement ; réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli ; documents partagés ; demandes de support ; profil (nom, téléphone) et changement de mot de passe, qui déconnecte les autres appareils.
+- **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, demandes de support, disponibilités, PDF partagés, liste des comptes clients.
+- **Espace de tickets** (support) : depuis l'onglet « Support » de son espace, un client connecté dépose une demande (sujet et message) et suit son statut — ouverte, en cours, clôturée — ainsi que les réponses de Youcef. Il ne voit que ses propres demandes. Le gérant les retrouve toutes dans la carte « Demandes de support » : il répond (une demande ouverte passe alors en cours), change le statut et clôture ; une demande clôturée doit être rouverte avant toute nouvelle réponse. Tables `tickets` et `ticket_replies`.
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
 
@@ -59,7 +60,7 @@ pnpm build
 pnpm test
 ```
 
-Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), le profil et le mot de passe, les accès gérant/client, les documents privés, la désactivation et la déconnexion.
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), le profil et le mot de passe, les accès gérant/client, les documents privés, les demandes de support (dépôt, isolation entre clients, réponse et clôture par le gérant), la désactivation et la déconnexion. `TEST_PORT` permet de changer le port si 43127 est occupé.
 
 ## Structure
 
@@ -68,9 +69,9 @@ src/
 ├── app/
 │   ├── layout.tsx            # Layout racine (polices, métadonnées)
 │   ├── (site)/               # Pages publiques avec en-tête et pied de page
-│   └── api/portal/route.ts   # API : réservation, connexion, espace gérant
+│   └── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
 ├── components/
-│   ├── account/              # Connexion, espace client, espace gérant
+│   ├── account/              # Connexion, espace client, espace gérant, support
 │   ├── booking/              # Formulaire de réservation, sélecteur de créneaux
 │   ├── layout/               # En-tête, pied de page, logo, menu mobile
 │   ├── legal/                # Pages légales
@@ -102,6 +103,7 @@ Polices : **Inter** (`font-sans`) et **Cormorant Garamond** (`font-heading`). Lo
 
 - Textes (présentation, parcours, formations), tarifs et modalités.
 - Format présentiel : oui ou non.
+- Support : faut-il permettre au client de répondre à son tour dans une demande, et prévenir par e-mail d'une nouvelle demande ou réponse (hors périmètre pour l'instant) ?
 - Inscription libre : tout inscrit peut réserver une séance de suivi. Prévoir, si besoin, une limitation (anti-spam) et le parcours « mot de passe oublié ».
 - Place exacte des séminaires par rapport au coaching.
 - Pages légales et confidentialité (le champ « intention » peut contenir des informations sensibles).

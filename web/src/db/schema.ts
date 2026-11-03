@@ -86,3 +86,36 @@ export const loginAttempts = pgTable("login_attempts", {
   count: integer("count").notNull(),
   expires: moment("expires").notNull(),
 });
+
+// Espace de tickets : demandes de support déposées par les clients, traitées par le gérant.
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["open", "in_progress", "closed"] })
+      .notNull()
+      .default("open"),
+    createdAt: moment("created_at").notNull().defaultNow(),
+    updatedAt: moment("updated_at").notNull().defaultNow(),
+    closedAt: moment("closed_at"),
+  },
+  (table) => [index("tickets_user_idx").on(table.userId)],
+);
+
+export const ticketReplies = pgTable(
+  "ticket_replies",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    createdAt: moment("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("ticket_replies_ticket_idx").on(table.ticketId)],
+);
