@@ -4,6 +4,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -78,12 +79,28 @@ export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: bytea("content").notNull(),
-  userId: integer("user_id").references(() => users.id, {
-    onDelete: "cascade",
-  }),
+  // Partagé avec tous les clients ; sinon, seulement avec ceux de `document_recipients`.
+  allClients: boolean("all_clients").notNull().default(false),
   // Parcours : nombre de séances réalisées nécessaires pour y accéder (0 = tout de suite).
   requiredSessions: integer("required_sessions").notNull().default(0),
 });
+
+// Clients destinataires d'un document partagé avec certains clients seulement.
+export const documentRecipients = pgTable(
+  "document_recipients",
+  {
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.userId] }),
+    index("document_recipients_user_idx").on(table.userId),
+  ],
+);
 
 export const loginAttempts = pgTable("login_attempts", {
   email: text("email").primaryKey(),
