@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getTexts, canonicalUrl } from "@/lib/i18n-server"
+import portraitYoucef from "../../../public/brand/portrait-youcef.png"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
@@ -100,29 +101,38 @@ export default async function HomePage() {
         </ol>
       </section>
 
-      <section className="border-y bg-card">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 md:grid-cols-2">
-          <div className="space-y-4">
-            <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.aboutEyebrow}</p>
-            <h2 className="text-4xl font-semibold">{home.aboutTitle}</h2>
-            <p className="text-muted-foreground">{home.aboutText}</p>
+      <section id="qui-suis-je" className="scroll-mt-20 border-y bg-card">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-2">
+          <Image
+            src={portraitYoucef}
+            alt={home.aboutPhotoAlt}
+            placeholder="blur"
+            sizes="(min-width: 1152px) 532px, (min-width: 768px) calc(50vw - 44px), calc(100vw - 32px)"
+            className="h-auto w-full rounded-2xl"
+          />
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.aboutEyebrow}</p>
+              <h2 className="text-4xl font-semibold">{home.aboutTitle}</h2>
+              <p className="text-muted-foreground">{home.aboutText}</p>
+            </div>
+            <Card className="self-center bg-secondary/40">
+              <CardHeader>
+                <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.seminarsEyebrow}</p>
+                <CardTitle className="text-2xl">{home.seminarsTitle}</CardTitle>
+                <CardDescription className="text-base">{home.seminarsText}</CardDescription>
+                <Button
+                  variant="link"
+                  className="w-fit px-0"
+                  render={<Link href="/seminaires" />}
+                  nativeButton={false}
+                >
+                  {home.seminarsCta}
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Button>
+              </CardHeader>
+            </Card>
           </div>
-          <Card className="self-center bg-secondary/40">
-            <CardHeader>
-              <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.seminarsEyebrow}</p>
-              <CardTitle className="text-2xl">{home.seminarsTitle}</CardTitle>
-              <CardDescription className="text-base">{home.seminarsText}</CardDescription>
-              <Button
-                variant="link"
-                className="w-fit px-0"
-                render={<Link href="/seminaires" />}
-                nativeButton={false}
-              >
-                {home.seminarsCta}
-                <ArrowRightIcon data-icon="inline-end" />
-              </Button>
-            </CardHeader>
-          </Card>
         </div>
       </section>
 
