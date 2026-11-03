@@ -5,7 +5,6 @@ export const english: Texts = {
   language: { open: "Change language", label: "Language" },
   common: {
     close: "Close",
-    demoNotice: "Student project · Draft content · Please use test data",
     notFoundTitle: "Page not found",
     notFoundText: "This page does not exist or has moved.",
     backHome: "Back to home",
