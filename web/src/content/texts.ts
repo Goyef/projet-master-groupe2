@@ -121,6 +121,7 @@ export const texts = {
     ],
     aboutEyebrow: "Qui suis-je",
     aboutTitle: "Youcef, coach-thérapeute",
+    aboutPhotoAlt: "Portrait de Youcef dans une bibliothèque",
     aboutText:
       "J’accompagne celles et ceux qui ressentent un vide intérieur sans toujours parvenir à le nommer. Mon rôle : vous aider à en prendre conscience et à retrouver ce qui compte pour vous. (Présentation, parcours et formations à compléter par Youcef.)",
     seminarsEyebrow: "Pour les entreprises",
