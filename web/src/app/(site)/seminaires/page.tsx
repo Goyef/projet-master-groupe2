@@ -5,11 +5,15 @@ import { CtaSection } from "@/components/sections/cta-section"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { texts as dict } from "@/content/texts"
+import { getTexts, canonicalUrl } from "@/lib/i18n-server"
 
-export const metadata: Metadata = { title: dict.seminars.metaTitle }
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getTexts()
+  return { title: dict.seminars.metaTitle, alternates: canonicalUrl("/seminaires") }
+}
 
-export default function SeminarsPage() {
+export default async function SeminarsPage() {
+  const dict = await getTexts()
   const seminars = dict.seminars
 
   return (

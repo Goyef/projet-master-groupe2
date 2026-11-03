@@ -1,5 +1,13 @@
 // Textes proposés par l'équipe : à faire valider par Youcef avant mise en ligne.
 export const texts = {
+  language: { open: "Changer de langue", label: "Langue" },
+  common: {
+    close: "Fermer",
+    demoNotice: "Projet scolaire · Textes à valider · Utilisez des données de test",
+    notFoundTitle: "Page introuvable",
+    notFoundText: "Cette page n’existe pas ou a été déplacée.",
+    backHome: "Retour à l’accueil",
+  },
   meta: {
     description:
       "Synégo — coaching-thérapie pour prendre conscience du vide émotionnel et retrouver un élan qui vous ressemble.",
@@ -443,6 +451,10 @@ export const texts = {
       {
         title: "Espace client",
         text: "Vous pouvez créer un espace client, ou Youcef peut vous en ouvrir un : il conserve vos nom, e-mail et téléphone, vos rendez-vous (y compris annulés), les documents partagés et vos demandes de support, visibles par Youcef seul. Vous pouvez y modifier votre nom, votre téléphone et votre mot de passe ; si Youcef vous a transmis un mot de passe provisoire, remplacez-le dès votre première connexion. Les mots de passe sont hachés. Le cookie de session nécessaire à la connexion expire après huit heures.",
+      },
+      {
+        title: "Langue du site",
+        text: "Le cookie synego-locale mémorise la langue choisie pendant un an. Il sert uniquement à retrouver cette préférence lors de vos prochaines visites.",
       },
       {
         title: "À compléter",

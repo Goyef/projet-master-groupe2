@@ -1,5 +1,7 @@
 "use client"
 
+import { useDateFormatter } from "@/components/i18n/locale-provider"
+
 import { useState } from "react"
 import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon } from "lucide-react"
 
@@ -13,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import { AppointmentActions } from "./appointment-actions"
 import { ClientSupport } from "./support-tickets"
@@ -32,6 +34,7 @@ type Filter = "upcoming" | "past" | "cancelled"
 
 // Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents, support et profil.
 export function ClientDashboard({ dict, bookingDict, types, formats, portal }: ClientDashboardProps) {
+  const formatDateTime = useDateFormatter()
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor, refresh, setMessage } = portal
   const [section, setSection] = useState<Section>("appointments")
   const [filter, setFilter] = useState<Filter>("upcoming")

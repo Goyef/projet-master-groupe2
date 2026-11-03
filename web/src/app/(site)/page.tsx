@@ -6,11 +6,12 @@ import { CtaSection } from "@/components/sections/cta-section"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { texts as dict } from "@/content/texts"
+import { getTexts, canonicalUrl } from "@/lib/i18n-server"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const dict = await getTexts()
   const home = dict.home
 
   return (
@@ -128,4 +129,8 @@ export default function HomePage() {
       <CtaSection />
     </>
   )
+}
+
+export async function generateMetadata() {
+  return { alternates: canonicalUrl("/") }
 }

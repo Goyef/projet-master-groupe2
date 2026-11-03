@@ -15,7 +15,7 @@ import {
 
 type MobileNavProps = {
   items: { title: string; href: string }[]
-  labels: { menu: string; open: string; nav: string }
+  labels: { menu: string; open: string; nav: string; close: string }
 }
 
 export function MobileNav({ items, labels }: MobileNavProps) {
@@ -24,7 +24,7 @@ export function MobileNav({ items, labels }: MobileNavProps) {
       <SheetTrigger render={<Button variant="ghost" size="icon" aria-label={labels.open} />}>
         <MenuIcon />
       </SheetTrigger>
-      <SheetContent side="right">
+      <SheetContent side="right" closeLabel={labels.close}>
         <SheetHeader>
           <SheetTitle>{labels.menu}</SheetTitle>
         </SheetHeader>

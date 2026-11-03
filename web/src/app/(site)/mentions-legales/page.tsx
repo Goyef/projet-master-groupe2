@@ -1,11 +1,15 @@
 import type { Metadata } from "next"
 
 import { LegalArticle } from "@/components/legal/legal-article"
-import { texts as dict } from "@/content/texts"
+import { getTexts, canonicalUrl } from "@/lib/i18n-server"
 
-export const metadata: Metadata = { title: dict.legal.noticeTitle }
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getTexts()
+  return { title: dict.legal.noticeTitle, alternates: canonicalUrl("/mentions-legales") }
+}
 
-export default function LegalPage() {
+export default async function LegalPage() {
+  const dict = await getTexts()
   const { legal } = dict
   return <LegalArticle title={legal.noticeTitle} intro={legal.noticeIntro} sections={legal.noticeSections} />
 }

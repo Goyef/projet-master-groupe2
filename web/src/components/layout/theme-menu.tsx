@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { Texts } from "@/content/texts"
-import { applyAppearance, MODES, readAppearance, THEMES, type Mode, type Theme } from "@/lib/theme"
+import { applyAppearance, MODES, readSavedAppearance, THEMES, type Mode, type Theme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
 // Pastilles de couleur et police de titre de chaque thème, pour les reconnaître dans le menu.
@@ -29,8 +29,7 @@ const modeIcons: Record<Mode, typeof SunIcon> = { light: SunIcon, dark: MoonIcon
 
 // Menu d'apparence : thème (couleurs, polices) et mode clair ou sombre, dans un seul menu.
 export function ThemeMenu({ dict }: { dict: Texts["theme"] }) {
-  // L'apparence enregistrée est déjà appliquée par le script de <head> : on la relit.
-  const [appearance, setAppearance] = useState(readAppearance)
+  const [appearance, setAppearance] = useState(readSavedAppearance)
 
   function change(next: Partial<typeof appearance>) {
     const value = { ...appearance, ...next }

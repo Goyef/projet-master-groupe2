@@ -1,5 +1,7 @@
 "use client"
 
+import { useDateFormatter } from "@/components/i18n/locale-provider"
+
 import { useState } from "react"
 import { LifeBuoyIcon, SendIcon } from "lucide-react"
 
@@ -23,7 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import type { Portal, Ticket, TicketStatus } from "./use-portal"
 
@@ -45,6 +47,7 @@ function sorted(tickets: Ticket[]) {
 
 // Message initial du client suivi des réponses du gérant.
 function Thread({ ticket, dict }: { ticket: Ticket; dict: SupportDict }) {
+  const formatDateTime = useDateFormatter()
   return (
     <div className="space-y-3">
       <p className="whitespace-pre-line">{ticket.message}</p>
@@ -66,6 +69,7 @@ function Thread({ ticket, dict }: { ticket: Ticket; dict: SupportDict }) {
 
 // Onglet « Support » de l'espace client : dépôt d'une demande et suivi de son traitement.
 export function ClientSupport({ dict, portal }: { dict: SupportDict; portal: Portal }) {
+  const formatDateTime = useDateFormatter()
   const { data, busy, submit, feedbackFor, isInvalid, errorFor } = portal
   const tickets = sorted(data?.tickets ?? [])
   return (
@@ -151,6 +155,7 @@ export function ClientSupport({ dict, portal }: { dict: SupportDict; portal: Por
 
 // Fenêtre de traitement d'une demande : réponse au client et changement de statut.
 function HandleDialog({ ticket, dict, portal }: { ticket: Ticket; dict: SupportDict; portal: Portal }) {
+  const formatDateTime = useDateFormatter()
   const [open, setOpen] = useState(false)
   const { busy, submit, feedbackFor, isInvalid, errorFor, setMessage } = portal
   const scope = `ticket-${ticket.id}`
@@ -163,7 +168,7 @@ function HandleDialog({ ticket, dict, portal }: { ticket: Ticket; dict: SupportD
       }}
     >
       <DialogTrigger render={<Button size="sm" variant="outline" />}>{dict.handle}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent closeLabel={dict.close} className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-2xl">{ticket.subject}</DialogTitle>
           <DialogDescription>
@@ -244,6 +249,7 @@ function HandleDialog({ ticket, dict, portal }: { ticket: Ticket; dict: SupportD
 
 // Carte « Demandes de support » de l'espace gérant.
 export function AdminSupport({ dict, portal }: { dict: SupportDict; portal: Portal }) {
+  const formatDateTime = useDateFormatter()
   const tickets = sorted(portal.data?.tickets ?? [])
   return (
     <Card>

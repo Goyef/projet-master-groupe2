@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { siteConfig } from "@/config/site";
-import { texts } from "@/content/texts";
+import type { Texts } from "@/content/texts";
+import { getDictionary } from "@/content/dictionaries";
+import { isLocale, LOCALE_COOKIE, negotiateLocale } from "@/lib/i18n";
 import {
   addDocument,
   addSlotRange,
@@ -42,7 +44,7 @@ import {
   type MeetingFormat,
 } from "@/lib/store";
 
-type ErrorCode = keyof typeof texts.errors;
+type ErrorCode = keyof Texts["errors"];
 
 function response(data: unknown, status = 200) {
   return NextResponse.json(data, {
@@ -69,12 +71,20 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   sessionsInvalid: "required_sessions",
 };
 
-function failure(code: ErrorCode, status = 400, detail?: string) {
-  // En développement, la raison du refus apparaît dans le terminal de `pnpm dev`.
-  if (process.env.NODE_ENV !== "production")
-    console.warn(`[api/portal] ${status} ${code}${detail ? ` (${detail})` : ""}`);
-  const field = code === "invalidField" ? detail : errorFields[code];
-  return response({ error: texts.errors[code], code, field }, status);
+function failureFor(request: NextRequest) {
+  const preference = request.cookies.get(LOCALE_COOKIE)?.value;
+  const language = request.headers.get("accept-language");
+  const locale = language ? negotiateLocale(language) : isLocale(preference) ? preference : "fr";
+  const { errors } = getDictionary(locale);
+  // Les codes restent stables pour les clients API ; seul le message est traduit.
+  return (code: ErrorCode, status = 400, detail?: string) => {
+    if (process.env.NODE_ENV !== "production")
+      console.warn(`[api/portal] ${status} ${code}${detail ? ` (${detail})` : ""}`);
+    const field = code === "invalidField" ? detail : errorFields[code];
+    const result = response({ error: errors[code], code, field }, status);
+    result.headers.set("Content-Language", locale);
+    return result;
+  };
 }
 function text(data: Record<string, unknown>, key: string, max = 160) {
   const value = data[key];
@@ -121,6 +131,7 @@ function ticketStatus(value: unknown): TicketStatus {
 }
 
 export async function GET(request: NextRequest) {
+  const failure = failureFor(request);
   const params = request.nextUrl.searchParams;
   try {
     const user = await currentUser(request.cookies.get("session")?.value);
@@ -168,11 +179,12 @@ export async function GET(request: NextRequest) {
       ...(admin ? { clients, slots } : { completedSessions: sessions }),
     });
   } catch (error) {
-    return handle(error);
+    return handle(error, failure);
   }
 }
 
 export async function POST(request: NextRequest) {
+  const failure = failureFor(request);
   const origin = request.headers.get("origin");
   // Next peut normaliser nextUrl sur localhost : comparer à l’hôte reçu.
   let sameOrigin = false;
@@ -340,7 +352,7 @@ export async function POST(request: NextRequest) {
     }
     return response({ ok: true });
   } catch (error) {
-    return handle(error);
+    return handle(error, failure);
   }
 }
 
@@ -356,7 +368,7 @@ function withSession(token: string) {
   return result;
 }
 
-function handle(error: unknown) {
+function handle(error: unknown, failure: ReturnType<typeof failureFor>) {
   if (error instanceof AppError)
     return failure(error.code as ErrorCode, error.status, error.detail);
   if (error instanceof SyntaxError) return failure("generic");

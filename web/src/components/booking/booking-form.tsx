@@ -1,5 +1,7 @@
 "use client"
 
+import { useDateFormatter, useLocalizedFetch } from "@/components/i18n/locale-provider"
+
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { CircleCheckIcon, CircleAlertIcon } from "lucide-react"
@@ -24,7 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { siteConfig } from "@/config/site"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import { SlotPicker, type Slot } from "./slot-picker"
 
@@ -42,6 +44,8 @@ export type BookingFormProps = {
 const durations: Record<AppointmentType, number> = { vente: 45, audit: 45, suivi: 60 }
 
 export function BookingForm({ dict, client = false, defaultPhone, onBooked }: BookingFormProps) {
+  const formatDateTime = useDateFormatter()
+  const localizedFetch = useLocalizedFetch()
   const choices: AppointmentType[] = client ? ["suivi", "audit"] : ["vente", "audit"]
   const [type, setType] = useState<AppointmentType>(choices[0])
   const [meetingFormat, setMeetingFormat] = useState<string>(siteConfig.meetingFormats[0])
@@ -62,7 +66,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`/api/portal?action=slots&type=${type}`, { signal: controller.signal })
+    localizedFetch(`/api/portal?action=slots&type=${type}`, { signal: controller.signal })
       .then(async (response) => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error)
@@ -77,7 +81,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
         if (!controller.signal.aborted) setLoadedKey(requestKey)
       })
     return () => controller.abort()
-  }, [type, requestKey, dict.errors.network])
+  }, [type, requestKey, dict.errors.network, localizedFetch])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -86,7 +90,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
     setBusy(true)
     setResult(null)
     try {
-      const response = await fetch("/api/portal", {
+      const response = await localizedFetch("/api/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
