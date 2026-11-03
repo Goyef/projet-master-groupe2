@@ -23,6 +23,21 @@ export type Appointment = {
   // Le client peut encore l'annuler ou le déplacer (plus de 24 h avant).
   changeable: boolean
 }
+export type TicketStatus = keyof Texts["portal"]["support"]["statuses"]
+export type Ticket = {
+  id: number
+  subject: string
+  message: string
+  status: TicketStatus
+  createdAt: number
+  updatedAt: number
+  closedAt: number | null
+  // Renseignés pour le gérant uniquement.
+  userId?: number
+  name?: string
+  email?: string
+  replies: { id: number; message: string; createdAt: number }[]
+}
 export type Client = {
   id: number
   name: string
@@ -44,6 +59,7 @@ export type PortalData = {
   // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
   documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
   completedSessions?: number
+  tickets?: Ticket[]
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
 }

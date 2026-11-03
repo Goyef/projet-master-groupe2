@@ -10,7 +10,7 @@ const adminUrl =
   "postgres://synego:synego@localhost:5432/synego";
 
 test(
-  "réservation, comptes et isolation des documents",
+  "réservation, comptes, isolation des documents et demandes de support",
   { timeout: 60000 },
   async () => {
     // Base temporaire indépendante, supprimée à la fin du test.
@@ -21,7 +21,7 @@ test(
     const databaseUrl = new URL(adminUrl);
     databaseUrl.pathname = "/" + database;
     const password = randomBytes(20).toString("hex");
-    const port = 43127,
+    const port = Number(process.env.TEST_PORT) || 43127,
       origin = `http://127.0.0.1:${port}`;
     const server = spawn(
       process.execPath,
@@ -122,7 +122,7 @@ test(
         body: JSON.stringify({ action: "logout" }),
       });
       assert.equal(crossOrigin.status, 403);
-      // Les comptes clients sont créés par le gérant ; l'inscription libre n'existe plus.
+      // Deux façons d'obtenir un compte client : création par le gérant ou inscription libre.
       const newClient = (name, extra = {}) => ({
         action: "create-client",
         name,
@@ -131,24 +131,28 @@ test(
         ...extra,
       });
       assert.equal((await request(newClient("Visiteur"))).response.status, 403);
-      const signUp = await request({
-        ...newClient("Inscrit"),
-        action: "register",
-        password,
-        consent: true,
-      });
-      // Action supprimée : traitée comme une action gérant, donc refusée à un visiteur.
-      assert.equal(signUp.response.status, 403);
-      assert.equal(signUp.response.headers.get("set-cookie"), null);
-      const adminSignUp = await request(
-        { ...newClient("Inscrit"), action: "register", password, consent: true },
-        admin,
+      const signUp = (extra = {}) =>
+        request({ ...newClient("Inscrit"), action: "register", password, consent: true, ...extra });
+      assert.equal((await signUp({ consent: false })).response.status, 400);
+      const shortPassword = await signUp({ password: "trop-court" });
+      assert.equal(shortPassword.response.status, 400);
+      assert.equal(shortPassword.data.field, "password");
+      const registered = await signUp();
+      assert.equal(registered.response.status, 200);
+      // L'inscription ouvre directement une session client, avec un mot de passe définitif.
+      const registeredSession = registered.response.headers.get("set-cookie").split(";")[0];
+      const registeredView = (await request("", registeredSession, "GET")).data.user;
+      assert.deepEqual(
+        [registeredView.role, registeredView.phone, registeredView.passwordTemporary],
+        ["client", "06 11 22 33 44", false],
       );
-      assert.equal(adminSignUp.data.code, "unknownAction");
+      const duplicate = await signUp();
+      assert.equal(duplicate.response.status, 409);
+      assert.equal(duplicate.data.field, "email");
       assert.equal(
         (await request({ action: "login", email: "inscrit@example.test", password }))
           .response.status,
-        401,
+        200,
       );
       assert.equal(
         (await request(newClient("Alice", { phone: "abc" }), admin)).response.status,
@@ -168,6 +172,8 @@ test(
         [
           ["alice@example.test", true, false],
           ["bob@example.test", true, false],
+          // Compte créé par inscription libre : pas de mot de passe provisoire.
+          ["inscrit@example.test", false, false],
         ],
       );
       // Le client se connecte avec le mot de passe provisoire, puis le remplace.
@@ -546,6 +552,107 @@ test(
         (await request(documentUrl, "", "GET")).response.status,
         401,
       );
+      // Espace de tickets : une demande est déposée, suivie, puis clôturée.
+      assert.equal(
+        (await request({ action: "create-ticket", subject: "Sans compte", message: "…" }))
+          .response.status,
+        401,
+      );
+      const emptyTicket = await request(
+        { action: "create-ticket", subject: "Facture", message: "  " },
+        alice,
+      );
+      assert.equal(emptyTicket.response.status, 400);
+      assert.equal(emptyTicket.data.field, "message");
+      const createdTicket = await request(
+        {
+          action: "create-ticket",
+          subject: "Accès au document",
+          message: "Je n'arrive pas à ouvrir le PDF partagé.",
+        },
+        alice,
+      );
+      assert.equal(createdTicket.response.status, 200);
+      const ticketId = createdTicket.data.reference;
+      assert.equal(
+        (
+          await request(
+            { action: "create-ticket", subject: "Question de Bob", message: "Bonjour." },
+            bob,
+          )
+        ).response.status,
+        200,
+      );
+      // Chaque client ne voit que ses demandes, sans pouvoir les traiter.
+      const aliceTickets = (await request("", alice, "GET")).data.tickets;
+      assert.deepEqual(
+        aliceTickets.map((ticket) => [ticket.subject, ticket.status]),
+        [["Accès au document", "open"]],
+      );
+      assert.equal(aliceTickets[0].email, undefined);
+      assert.deepEqual(
+        (await request("", bob, "GET")).data.tickets.map((ticket) => ticket.subject),
+        ["Question de Bob"],
+      );
+      for (const action of [
+        { action: "reply-ticket", id: ticketId, message: "Je me réponds." },
+        { action: "ticket-status", id: ticketId, status: "closed" },
+      ])
+        assert.equal((await request(action, bob)).response.status, 403);
+      // Le gérant voit toutes les demandes, répond (la demande passe en cours) puis clôture.
+      const adminTickets = (await request("", admin, "GET")).data.tickets;
+      assert.equal(adminTickets.length, 2);
+      assert.equal(
+        adminTickets.find((ticket) => ticket.id === ticketId).email,
+        "alice@example.test",
+      );
+      assert.equal(
+        (await request({ action: "reply-ticket", id: 999999, message: "?" }, admin))
+          .response.status,
+        404,
+      );
+      assert.equal(
+        (
+          await request(
+            { action: "ticket-status", id: ticketId, status: "archivé" },
+            admin,
+          )
+        ).response.status,
+        400,
+      );
+      assert.equal(
+        (
+          await request(
+            {
+              action: "reply-ticket",
+              id: ticketId,
+              message: "Le document a été partagé à nouveau.",
+            },
+            admin,
+          )
+        ).response.status,
+        200,
+      );
+      const followed = (await request("", alice, "GET")).data.tickets[0];
+      assert.equal(followed.status, "in_progress");
+      assert.deepEqual(
+        followed.replies.map((reply) => reply.message),
+        ["Le document a été partagé à nouveau."],
+      );
+      assert.equal(
+        (await request({ action: "ticket-status", id: ticketId, status: "closed" }, admin))
+          .response.status,
+        200,
+      );
+      const closed = (await request("", alice, "GET")).data.tickets[0];
+      assert.equal(closed.status, "closed");
+      assert.ok(closed.closedAt);
+      const lateReply = await request(
+        { action: "reply-ticket", id: ticketId, message: "Encore une chose." },
+        admin,
+      );
+      assert.equal(lateReply.response.status, 409);
+      assert.equal(lateReply.data.code, "ticketClosed");
       // Parcours : un document se débloque après un nombre de séances réalisées.
       const bobId = clients.find((client) => client.email === "bob@example.test").id;
       const share = (title, requiredSessions) => {

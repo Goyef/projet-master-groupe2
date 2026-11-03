@@ -36,11 +36,12 @@ pnpm dev              # http://localhost:3000
 - **Réservation** (`/rendez-vous`) : appel découverte (45 min) ou audit séminaire (45 min), sans compte. Champs demandés : prénom, nom, e-mail, téléphone et intention (« ce qui vous amène »), plus l'accord sur l'utilisation des données. Confirmation immédiate à l'écran.
 - **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
 - **Annulation / déplacement** : un client connecté annule ou déplace lui-même son rendez-vous depuis son espace, jusqu'à 24 h avant (règle vérifiée côté serveur). Le créneau libéré redevient réservable ; le rendez-vous annulé reste dans l'historique. En deçà de 24 h, ou pour un rendez-vous pris sans compte, la personne prévient Youcef.
-- **Comptes clients** (espace gérant, carte « Comptes clients ») : conformément au cahier des charges, c'est le gérant qui crée les comptes (nom, e-mail, téléphone) et peut les désactiver ou les réactiver. Il n'y a plus d'inscription libre sur `/connexion` : l'action `register` a été supprimée de l'API.
+- **Comptes clients** : deux façons d'obtenir un compte. Le visiteur peut **s'inscrire lui-même** sur `/connexion` (onglet « Créer un compte » : nom, e-mail, téléphone, mot de passe de 12 caractères minimum, accord sur les données) et est connecté immédiatement. Le **gérant** peut aussi créer un compte depuis son espace (carte « Comptes clients ») avec un mot de passe provisoire. Dans les deux cas, le gérant peut désactiver ou réactiver le compte.
 - **Mot de passe provisoire** : à la création, un mot de passe provisoire aléatoire est généré (format `XXXX-XXXX-XXXX-XXXX`, environ 80 bits, sans caractères ambigus). Il est affiché **une seule fois** au gérant, qui le transmet au client par le canal de son choix (aucun e-mail n'est envoyé) ; seul son hash est conservé. Tant que le client ne l'a pas remplacé, son espace l'invite à le faire (onglet « Mon profil ») et le gérant voit le badge « Mot de passe provisoire ». En cas de perte, le bouton « Nouveau mot de passe » en génère un autre et ferme les sessions du client. Ce choix a été préféré à un lien d'activation, qui demanderait une page et un jeton supplémentaires pour un bénéfice faible sans envoi d'e-mail.
 - **Espace client** : prochain rendez-vous mis en avant ; rendez-vous à venir, passés et annulés, avec annulation et déplacement ; réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli ; documents partagés ; profil (nom, téléphone) et changement de mot de passe (dont le mot de passe provisoire), qui déconnecte les autres appareils.
-- **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, création et gestion des comptes clients.
+- **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, demandes de support, disponibilités, PDF partagés, création et gestion des comptes clients.
 - **Parcours client** : au partage d'un PDF, le gérant indique après combien de séances réalisées il devient accessible (0 = tout de suite, 50 au maximum). Une séance compte quand c'est un suivi confirmé que le gérant a marqué « réalisé ». Dans l'onglet « Documents », le client voit sa progression, ses documents débloqués et les suivants, verrouillés (« Disponible après la séance N »). Le serveur refuse le téléchargement d'un document verrouillé ; le gérant accède à tous les documents. Les types de rendez-vous qui comptent sont listés dans `SESSION_TYPES` (`src/lib/store.ts`).
+- **Espace de tickets** (support) : depuis l'onglet « Support » de son espace, un client connecté dépose une demande (sujet et message) et suit son statut — ouverte, en cours, clôturée — ainsi que les réponses de Youcef. Il ne voit que ses propres demandes. Le gérant les retrouve toutes dans la carte « Demandes de support » : il répond (une demande ouverte passe alors en cours), change le statut et clôture ; une demande clôturée doit être rouverte avant toute nouvelle réponse. Tables `tickets` et `ticket_replies`.
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
 
@@ -61,7 +62,7 @@ pnpm build
 pnpm test
 ```
 
-Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), la création des comptes par le gérant (refusée à un client et à un visiteur, ancienne inscription refusée), le mot de passe provisoire et sa réinitialisation, le profil et le mot de passe, les accès gérant/client, les documents privés, le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), la désactivation et la déconnexion.
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), l'inscription libre (accord et mot de passe exigés, e-mail unique, session ouverte), la création des comptes par le gérant (refusée à un client et à un visiteur), le mot de passe provisoire et sa réinitialisation, le profil et le mot de passe, les accès gérant/client, les documents privés, le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), les demandes de support (dépôt, isolation entre clients, réponse et clôture par le gérant), la désactivation et la déconnexion. `TEST_PORT` permet de changer le port si 43127 est occupé.
 
 ## Structure
 
@@ -70,9 +71,9 @@ src/
 ├── app/
 │   ├── layout.tsx            # Layout racine (polices, métadonnées)
 │   ├── (site)/               # Pages publiques avec en-tête et pied de page
-│   └── api/portal/route.ts   # API : réservation, connexion, espace gérant
+│   └── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
 ├── components/
-│   ├── account/              # Connexion, espace client, espace gérant
+│   ├── account/              # Connexion, espace client, espace gérant, support
 │   ├── booking/              # Formulaire de réservation, sélecteur de créneaux
 │   ├── layout/               # En-tête, pied de page, logo, menu mobile
 │   ├── legal/                # Pages légales
@@ -104,6 +105,8 @@ Polices : **Inter** (`font-sans`) et **Cormorant Garamond** (`font-heading`). Lo
 
 - Textes (présentation, parcours, formations), tarifs et modalités.
 - Format présentiel : oui ou non.
+- Support : faut-il permettre au client de répondre à son tour dans une demande, et prévenir par e-mail d'une nouvelle demande ou réponse (hors périmètre pour l'instant) ?
+- Inscription libre : tout inscrit peut réserver une séance de suivi, alors que le cahier des charges réserve le suivi aux clients signés. À valider avec Youcef (garder l'inscription, ou la limiter, par exemple avec une validation du compte par le gérant).
 - Comptes clients : à quel moment Youcef crée le compte (après l'appel découverte, à la signature du devis ?) et par quel canal il transmet le mot de passe provisoire. Le recueil du consentement du client à la création de son compte se fait hors du site et reste à formaliser. Pas de « mot de passe oublié » en libre-service : le client demande un nouveau mot de passe provisoire à Youcef.
 - Place exacte des séminaires par rapport au coaching.
 - Pages légales et confidentialité (le champ « intention » peut contenir des informations sensibles).
