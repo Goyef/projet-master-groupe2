@@ -16,6 +16,7 @@ import { format, formatDateTime } from "@/lib/format"
 
 import { ClientAccounts } from "./client-accounts"
 import { SlotSchedule } from "./slot-schedule"
+import { AdminAgenda } from "./admin-agenda"
 import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -118,6 +119,8 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
           )}
         </CardContent>
       </Card>
+
+      <AdminAgenda dict={dict.agenda} agenda={data.agenda} />
 
       <AdminSupport dict={dict.support} portal={portal} />
 

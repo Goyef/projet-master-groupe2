@@ -9,5 +9,6 @@ export function bookingDictionary(dict: Texts): BookingFormProps["dict"] {
     minutes: dict.minutes,
     errors: dict.errors,
     form: dict.booking.form,
+    calendar: dict.calendar,
   }
 }

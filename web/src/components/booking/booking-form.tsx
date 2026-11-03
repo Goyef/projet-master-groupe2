@@ -26,12 +26,13 @@ import { siteConfig } from "@/config/site"
 import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
+import { AddToCalendar } from "./add-to-calendar"
 import { SlotPicker, type Slot } from "./slot-picker"
 
 type AppointmentType = keyof Texts["types"]
 
 export type BookingFormProps = {
-  dict: Pick<Texts, "types" | "formats" | "minutes" | "errors"> & { form: Texts["booking"]["form"] }
+  dict: Pick<Texts, "types" | "formats" | "minutes" | "errors" | "calendar"> & { form: Texts["booking"]["form"] }
   // Client connecté : choix entre suivi et audit, sans saisie du nom ni de l'e-mail.
   client?: boolean
   // Téléphone du compte client, prérempli dans le formulaire.
@@ -53,6 +54,10 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
   const [revision, setRevision] = useState(0)
   // `field` : champ fautif renvoyé par l'API ; l'erreur s'affiche alors sous ce champ.
   const [result, setResult] = useState<{ ok: boolean; message: string; field?: string } | null>(null)
+  // Rendez-vous qui vient d'être réservé : proposé à l'ajout dans l'agenda du client.
+  const [booked, setBooked] = useState<{ id: number; type: string; format: string; starts: number; ends: number } | null>(
+    null,
+  )
   const isInvalid = (field: string) => !!result && !result.ok && result.field === field
   const errorFor = (field: string) => isInvalid(field) && <FieldError>{result?.message}</FieldError>
 
@@ -85,6 +90,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
     const fields = new FormData(form)
     setBusy(true)
     setResult(null)
+    setBooked(null)
     try {
       const response = await fetch("/api/portal", {
         method: "POST",
@@ -110,6 +116,13 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
       setResult({
         ok: true,
         message: format(dict.form.success, { type: dict.types[type], date: formatDateTime(data.starts) }),
+      })
+      setBooked({
+        id: data.reference,
+        type: dict.types[type],
+        format: dict.formats[meetingFormat as keyof Texts["formats"]],
+        starts: data.starts,
+        ends: data.starts + durations[type] * 60_000,
       })
       form.reset()
       setConsent(false)
@@ -313,7 +326,10 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
               <Alert variant={result.ok ? "default" : "destructive"} role="status">
                 {result.ok ? <CircleCheckIcon /> : <CircleAlertIcon />}
                 {result.ok && <AlertTitle>{dict.form.successTitle}</AlertTitle>}
-                <AlertDescription>{result.message}</AlertDescription>
+                <AlertDescription>
+                  <p>{result.message}</p>
+                  {result.ok && booked && <AddToCalendar dict={dict.calendar} appointment={booked} />}
+                </AlertDescription>
               </Alert>
             )}
             {client && <FieldDescription>{dict.form.followUpNote}</FieldDescription>}

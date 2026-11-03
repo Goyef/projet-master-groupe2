@@ -62,6 +62,8 @@ export type PortalData = {
   tickets?: Ticket[]
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
+  // Gérant : lien d'abonnement à l'agenda (null s'il n'est pas configuré) et synchronisation Google.
+  agenda?: { feedPath: string | null; googleSync: boolean }
 }
 
 // `scope` : carte où afficher le message (à côté du formulaire utilisé) ; absent = haut de page.
