@@ -1,11 +1,11 @@
-import { cacheLife } from "next/cache"
 import Link from "next/link"
 
 import { Logo } from "@/components/layout/logo"
 import { legalNav, mainNav, siteConfig } from "@/config/site"
-import { texts as dict } from "@/content/texts"
+import { getTexts } from "@/lib/i18n-server"
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const dict = await getTexts()
   return (
     <footer className="mt-auto border-t bg-primary text-primary-foreground">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
@@ -38,8 +38,6 @@ export function SiteFooter() {
   )
 }
 
-async function CurrentYear() {
-  "use cache"
-  cacheLife("days")
+function CurrentYear() {
   return new Date().getFullYear()
 }

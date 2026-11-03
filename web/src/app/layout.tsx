@@ -2,8 +2,9 @@ import type { Metadata } from "next"
 import { Cormorant_Garamond, Inter, Manrope, Playfair_Display, Source_Sans_3 } from "next/font/google"
 
 import { siteConfig } from "@/config/site"
-import { texts } from "@/content/texts"
-import { themeScript } from "@/lib/theme"
+import { LocaleProvider } from "@/components/i18n/locale-provider"
+import { ThemeScript } from "@/components/layout/theme-script"
+import { getLocale, getTexts } from "@/lib/i18n-server"
 import "./globals.css"
 
 // Thème « Classique » (par défaut).
@@ -40,28 +41,36 @@ const manrope = Manrope({
 
 const fonts = [inter, cormorant, playfair, sourceSans, manrope].map((font) => font.variable).join(" ")
 
-export const metadata: Metadata = {
-  title: {
-    default: siteConfig.name,
-    template: `%s · ${siteConfig.name}`,
-  },
-  description: texts.meta.description,
-  openGraph: {
-    type: "website",
-    locale: "fr_FR",
-    siteName: siteConfig.name,
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const texts = await getTexts()
+  return {
+    title: {
+      default: siteConfig.name,
+      template: `%s · ${siteConfig.name}`,
+    },
+    description: texts.meta.description,
+    openGraph: {
+      type: "website",
+      locale: locale === "fr" ? "fr_FR" : "en_GB",
+      alternateLocale: locale === "fr" ? "en_GB" : "fr_FR",
+      siteName: siteConfig.name,
+    },
+  }
 }
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale()
   return (
     // Le script ci-dessous applique le thème enregistré avant l'affichage : les attributs
     // de <html> peuvent donc différer du rendu serveur.
-    <html lang="fr" data-theme="classique" className={`${fonts} h-full antialiased`} suppressHydrationWarning>
+    <html lang={locale} data-theme="classique" className={`${fonts} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeScript />
       </head>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   )
 }

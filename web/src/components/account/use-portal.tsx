@@ -1,5 +1,7 @@
 "use client"
 
+import { useLocalizedFetch } from "@/components/i18n/locale-provider"
+
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { CircleAlertIcon, CircleCheckIcon } from "lucide-react"
 
@@ -62,6 +64,8 @@ export type PortalData = {
   tickets?: Ticket[]
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
+  // Gérant : lien d'abonnement à l'agenda (null s'il n'est pas configuré) et synchronisation Google.
+  agenda?: { feedPath: string | null; googleSync: boolean }
 }
 
 // `scope` : carte où afficher le message (à côté du formulaire utilisé) ; absent = haut de page.
@@ -71,15 +75,16 @@ export type ActOptions = { success?: (result: Record<string, string | number>) =
 
 // État partagé de l'espace connecté : données, envoi des actions et messages de retour.
 export function usePortal(networkError: string, savedText: string) {
+  const localizedFetch = useLocalizedFetch()
   const [data, setData] = useState<PortalData | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async (): Promise<PortalData> => {
-    const response = await fetch("/api/portal", { cache: "no-store" })
+    const response = await localizedFetch("/api/portal", { cache: "no-store" })
     if (!response.ok) throw new Error(networkError)
     return response.json()
-  }, [networkError])
+  }, [networkError, localizedFetch])
 
   const refresh = useCallback(async () => {
     setData(await load())
@@ -99,7 +104,7 @@ export function usePortal(networkError: string, savedText: string) {
     setBusy(true)
     setMessage(null)
     try {
-      const response = await fetch("/api/portal", {
+      const response = await localizedFetch("/api/portal", {
         method: "POST",
         ...(payload instanceof FormData
           ? { body: payload }

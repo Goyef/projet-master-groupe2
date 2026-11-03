@@ -1,5 +1,13 @@
 // Textes proposés par l'équipe : à faire valider par Youcef avant mise en ligne.
 export const texts = {
+  language: { open: "Changer de langue", label: "Langue" },
+  common: {
+    close: "Fermer",
+    demoNotice: "Projet scolaire · Textes à valider · Utilisez des données de test",
+    notFoundTitle: "Page introuvable",
+    notFoundText: "Cette page n’existe pas ou a été déplacée.",
+    backHome: "Retour à l’accueil",
+  },
   meta: {
     description:
       "Synégo — coaching-thérapie pour prendre conscience du vide émotionnel et retrouver un élan qui vous ressemble.",
@@ -29,6 +37,20 @@ export const texts = {
       light: "Clair",
       dark: "Sombre",
     },
+  },
+  calendar: {
+    add: "Ajouter à mon agenda",
+    google: "Google Agenda",
+    ics: "Apple, Outlook… (fichier .ics)",
+    fileName: "rendez-vous-synego.ics",
+    // Événement ajouté par le client dans son propre agenda.
+    clientTitle: "{type} avec Youcef · Synégo",
+    clientDescription:
+      "{type} de {minutes} minutes ({format}). Youcef vous communique le lien avant le rendez-vous.\nPour annuler ou déplacer, au moins 24 h avant : {url}",
+    // Événement côté gérant (synchronisation Google Agenda et flux d'abonnement).
+    adminTitle: "{type} · {name}",
+    adminDescription: "{type} ({minutes} min, {format})\nE-mail : {email}\nTéléphone : {phone}\nDétails dans l’espace gérant : {url}",
+    feedName: "Synégo · rendez-vous",
   },
   footer: {
     pages: "Pages",
@@ -352,6 +374,18 @@ export const texts = {
       statusSaved: "Statut mis à jour.",
       close: "Fermer",
     },
+    agenda: {
+      title: "Agenda",
+      intro: "Retrouvez vos rendez-vous dans Google Agenda ou tout autre agenda.",
+      feedTitle: "Lien d’abonnement",
+      feedText:
+        "Dans Google Agenda : « Autres agendas » → « + » → « À partir de l’URL », puis collez ce lien. Les rendez-vous s’y affichent et se mettent à jour automatiquement (Google rafraîchit l’agenda toutes les quelques heures). Gardez ce lien privé : il donne accès à vos rendez-vous.",
+      feedMissing: "Lien d’abonnement non configuré : définissez CALENDAR_FEED_TOKEN (voir le README).",
+      copy: "Copier le lien",
+      copied: "Lien copié",
+      googleOn: "Synchronisation Google Agenda active : chaque réservation, déplacement ou annulation est reporté immédiatement.",
+      googleOff: "Synchronisation directe avec Google Agenda non configurée (voir le README).",
+    },
     clientsTitle: "Comptes clients",
     clientsIntro:
       "Les clients peuvent créer eux-mêmes leur compte depuis la page de connexion. Vous pouvez aussi en créer un : un mot de passe provisoire est généré, à transmettre au client, qui le remplace depuis « Mon profil ». Vous pouvez désactiver un compte à tout moment.",
@@ -488,19 +522,20 @@ export const texts = {
       },
       {
         title: "Hébergement et sous-traitants",
-        text: "Vos données ne sont ni vendues ni utilisées à des fins publicitaires. Seuls deux prestataires techniques y accèdent, pour le compte de Youcef :",
+        text: "Vos données ne sont ni vendues ni utilisées à des fins publicitaires. Seuls les prestataires techniques suivants y accèdent, pour le compte de Youcef :",
         items: [
           "Vercel Inc. (États-Unis) : héberge et exécute le site ; vos données transitent par ses serveurs à chaque requête.",
           "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
+          "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis.",
         ],
       },
       {
         title: "Transferts hors de l’Union européenne",
-        text: "Vercel et Neon sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
+        text: "Vercel, Neon et Google sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
       },
       {
         title: "Cookies",
-        text: "Le site n’utilise qu’un cookie strictement nécessaire : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures). Il ne nécessite pas votre consentement. Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
+        text: "Le site n’utilise que des cookies strictement nécessaires, qui ne demandent pas votre consentement : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures) et le cookie synego-locale, qui mémorise la langue choisie pendant un an. Le thème d’affichage choisi est enregistré uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
       },
       {
         title: "Durées de conservation",

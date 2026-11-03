@@ -1,5 +1,7 @@
 "use client"
 
+import { useDateFormatter } from "@/components/i18n/locale-provider"
+
 import type { FocusEvent } from "react"
 import { DownloadIcon, LogOutIcon } from "lucide-react"
 
@@ -12,10 +14,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import { ClientAccounts } from "./client-accounts"
 import { SlotSchedule } from "./slot-schedule"
+import { AdminAgenda } from "./admin-agenda"
 import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -46,6 +49,7 @@ function statusBadge(item: Appointment, dict: Texts["portal"]) {
 
 // Espace gérant : rendez-vous, demandes de support, documents, disponibilités et comptes clients.
 export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardProps) {
+  const formatDateTime = useDateFormatter()
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor } = portal
   if (!data?.user) return null
   const clientName = (id: number | null) =>
@@ -118,6 +122,8 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
           )}
         </CardContent>
       </Card>
+
+      <AdminAgenda dict={dict.agenda} agenda={data.agenda} />
 
       <AdminSupport dict={dict.support} portal={portal} />
 

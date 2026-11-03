@@ -12,6 +12,7 @@ export const DEFAULT_MODE: Mode = "light"
 
 const THEME_KEY = "synego-theme"
 const MODE_KEY = "synego-mode"
+let lastAppearance: { theme: Theme; mode: Mode } | undefined
 
 const isTheme = (value: unknown): value is Theme => THEMES.includes(value as Theme)
 const isMode = (value: unknown): value is Mode => MODES.includes(value as Mode)
@@ -29,8 +30,30 @@ export function readAppearance(): { theme: Theme; mode: Mode } {
   }
 }
 
+// Le layout peut être recréé lors d'un changement de langue. La mémoire garde aussi
+// le choix courant si le navigateur refuse l'accès au stockage.
+export function readSavedAppearance(): { theme: Theme; mode: Mode } {
+  const fallback = lastAppearance ?? readAppearance()
+  try {
+    const theme = localStorage.getItem(THEME_KEY)
+    const mode = localStorage.getItem(MODE_KEY)
+    return {
+      theme: isTheme(theme) ? theme : fallback.theme,
+      mode: isMode(mode) ? mode : fallback.mode,
+    }
+  } catch {
+    return fallback
+  }
+}
+
+export function restoreAppearance() {
+  const { theme, mode } = readSavedAppearance()
+  applyAppearance(theme, mode)
+}
+
 // Applique l'apparence et la mémorise dans le navigateur.
 export function applyAppearance(theme: Theme, mode: Mode) {
+  lastAppearance = { theme, mode }
   const root = document.documentElement
   root.dataset.theme = isTheme(theme) ? theme : DEFAULT_THEME
   root.classList.toggle("dark", mode === "dark")

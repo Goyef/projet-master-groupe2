@@ -27,12 +27,13 @@ pnpm dev              # http://localhost:3000
 | `pnpm start`       | Lance le build de production                           |
 | `pnpm lint`        | Vérification ESLint                                    |
 | `pnpm test`        | Test d'intégration (après `pnpm build`, Postgres lancé) |
+| `pnpm test:i18n`   | Traductions, routes et erreurs bilingues, après le build ; sans Postgres |
 | `pnpm db:up`       | Démarre le Postgres de développement                   |
 | `pnpm db:generate` | Génère une migration après modification du schéma      |
 
 ## Fonctionnalités
 
-- **Textes** : tous les textes du site sont dans `src/content/texts.ts` (français uniquement).
+- **Langues** : français et anglais, avec un sélecteur à drapeaux dans l'en-tête. Textes français dans `src/content/texts.ts`, anglais dans `src/content/en.ts` ; le typage et les tests vérifient les clés et variables de traduction.
 - **Réservation** (`/rendez-vous`) : appel découverte (45 min) ou audit séminaire (45 min), sans compte. Champs demandés : prénom, nom, e-mail, téléphone et intention (« ce qui vous amène »), plus l'accord sur l'utilisation des données. Confirmation immédiate à l'écran.
 - **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
 - **Annulation / déplacement** : un client connecté annule ou déplace lui-même son rendez-vous depuis son espace, jusqu'à 24 h avant (règle vérifiée côté serveur). Le créneau libéré redevient réservable ; le rendez-vous annulé reste dans l'historique. En deçà de 24 h, ou pour un rendez-vous pris sans compte, la personne prévient Youcef.
@@ -45,7 +46,39 @@ pnpm dev              # http://localhost:3000
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
 
+- **Agendas** :
+  - **Client** : après une réservation et dans l'espace client (prochain rendez-vous, rendez-vous à venir), le menu « Ajouter à mon agenda » propose **Google Agenda** (lien prérempli) ou un **fichier `.ics`** (Apple Calendar, Outlook…). Rien à configurer.
+  - **Gérant, lien d'abonnement** : avec `CALENDAR_FEED_TOKEN`, l'espace gérant (carte « Agenda ») affiche un lien privé `/api/agenda/<jeton>` à ajouter une fois dans Google Agenda (« Autres agendas » → « + » → « À partir de l'URL »). Il contient les rendez-vous confirmés des 30 derniers jours et à venir ; Google le rafraîchit toutes les quelques heures.
+  - **Gérant, synchronisation Google immédiate** : avec un compte de service Google (voir « Configurer Google Agenda »), chaque réservation, déplacement ou annulation est reporté tout de suite dans l'agenda de Youcef. Le report a lieu après la réponse : une panne de Google ne bloque jamais une réservation (l'erreur est journalisée).
+  - Dans les deux cas côté gérant, l'événement contient le type, le nom, l'e-mail et le téléphone, mais jamais « ce qui vous amène ». Calendly n'est pas utilisé : la prise de rendez-vous reste celle du site.
+
 Hors périmètre (décision de l'équipe) : e-mails de confirmation et de rappel, paiement.
+
+## Langues
+
+Les URL publiques restent identiques dans les deux langues (`/`, `/seminaires`, `/rendez-vous`…). Le serveur sélectionne la version française ou anglaise selon le cookie `synego-locale` (un an), sinon la langue du navigateur, avec le français par défaut. Le sélecteur conserve la page, ses paramètres, son ancre et l'apparence choisie. Les dates, formulaires et erreurs API suivent la langue affichée ; les horaires restent en heure de Paris. Les contenus saisis par les utilisateurs et les PDF ne sont pas traduits.
+
+Côté serveur, `getTexts()` fournit le dictionnaire de la page ; côté client, `useLocalizedFetch()` transmet sa langue à l'API via `Accept-Language`. Les liens utilisent les chemins habituels, sans préfixe. Définir `NEXT_PUBLIC_SITE_URL` au build avec l'URL publique pour générer les liens canoniques. Une URL partagée affiche la langue du visiteur ; les deux langues n'ont pas d'URL distincte pour le référencement.
+
+Les pages sont rendues côté serveur à chaque requête afin que les textes et `<html lang>` correspondent au cookie dès le premier affichage. Le cache partagé des pages est désactivé pour éviter de servir la langue d'un autre visiteur ; les fichiers statiques restent mis en cache.
+
+### Configurer Google Agenda
+
+Variables (toutes facultatives ; sans elles, la fonction correspondante est simplement désactivée) :
+
+| Variable                        | Rôle                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `CALENDAR_FEED_TOKEN`           | Jeton secret du lien d'abonnement (32 caractères minimum, ex. `openssl rand -hex 24`)     |
+| `GOOGLE_CALENDAR_ID`            | Identifiant de l'agenda de Youcef (son adresse Gmail pour l'agenda principal)            |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL`  | Adresse du compte de service (`…@….iam.gserviceaccount.com`)                              |
+| `GOOGLE_PRIVATE_KEY`            | Clé privée du compte de service (champ `private_key` du fichier JSON, `\n` acceptés)     |
+| `SITE_URL`                      | Adresse publique du site, reprise dans les événements (sinon, celle de la requête)        |
+
+Synchronisation immédiate, une fois :
+1. Dans [Google Cloud Console](https://console.cloud.google.com/), créer un projet et activer l'**API Google Calendar**.
+2. Créer un **compte de service**, puis une clé au format JSON.
+3. Dans Google Agenda, ouvrir les paramètres de l'agenda de Youcef → « Partager avec des personnes » → ajouter l'adresse du compte de service avec le droit **« Modifier les événements »**.
+4. Renseigner les variables ci-dessus (dans `.env.local` en local, dans Vercel → Settings → Environment Variables en production), puis redéployer. La carte « Agenda » de l'espace gérant indique si la synchronisation est active.
 
 ## Données
 
@@ -59,28 +92,30 @@ Sécurité : cookies de session HttpOnly, SameSite=Lax, Secure en production ; m
 
 ```bash
 pnpm build
+pnpm test:i18n
 pnpm test
 ```
 
-Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), l'inscription libre (accord et mot de passe exigés, e-mail unique, session ouverte), la création des comptes par le gérant (refusée à un client et à un visiteur), le mot de passe provisoire et sa réinitialisation, le profil et le mot de passe, les accès gérant/client, les documents privés, le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), les demandes de support (dépôt, isolation entre clients, réponse et clôture par le gérant), la désactivation et la déconnexion. `TEST_PORT` permet de changer le port si 43127 est occupé.
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), l'inscription libre (accord et mot de passe exigés, e-mail unique, session ouverte), la création des comptes par le gérant (refusée à un client et à un visiteur), le mot de passe provisoire et sa réinitialisation, le profil et le mot de passe, les accès gérant/client, les documents privés, le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), les demandes de support (dépôt, isolation entre clients, réponse et clôture par le gérant), les agendas (lien d'abonnement secret sans l'intention ni les rendez-vous annulés ; synchronisation Google de la réservation, du déplacement et de l'annulation, contre un faux serveur Google qui vérifie la signature du compte de service), la désactivation et la déconnexion. `TEST_PORT` permet de changer le port si 43127 est occupé.
 
 ## Structure
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx            # Layout racine (polices, métadonnées)
-│   ├── (site)/               # Pages publiques avec en-tête et pied de page
+│   ├── layout.tsx            # Layout racine, langue, polices et métadonnées
+│   ├── (site)/               # Pages publiques en français et anglais
 │   └── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
 ├── components/
 │   ├── account/              # Connexion, espace client, espace gérant, support
 │   ├── booking/              # Formulaire de réservation, sélecteur de créneaux
 │   ├── layout/               # En-tête, pied de page, logo, menu mobile
+│   ├── i18n/                 # Langue, apparence, dates et requêtes API
 │   ├── legal/                # Pages légales
 │   ├── sections/             # Blocs de page réutilisables
 │   └── ui/                   # Composants shadcn
 ├── config/site.ts            # Nom, navigation, formats de rendez-vous
-├── content/texts.ts          # Tous les textes du site
+├── content/                  # Dictionnaires français et anglais
 ├── db/schema.ts              # Schéma Drizzle
 └── lib/
     ├── format.ts             # Dates (heure de Paris) et gabarits de texte

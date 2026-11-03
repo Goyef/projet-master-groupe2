@@ -1,9 +1,10 @@
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
-import { texts as dict } from "@/content/texts"
+import { getTexts } from "@/lib/i18n-server"
 
-export function CtaSection() {
+export async function CtaSection() {
+  const dict = await getTexts()
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <div className="flex flex-col items-start gap-6 rounded-2xl bg-primary p-8 text-primary-foreground md:flex-row md:items-center md:justify-between md:p-12">

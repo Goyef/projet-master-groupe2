@@ -1,8 +1,11 @@
 "use client"
 
+import { useDateFormatter } from "@/components/i18n/locale-provider"
+
 import { useState } from "react"
 import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon } from "lucide-react"
 
+import { AddToCalendar } from "@/components/booking/add-to-calendar"
 import { BookingForm, type BookingFormProps } from "@/components/booking/booking-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +17,7 @@ import { PasswordInput } from "./password-input"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import { AppointmentActions } from "./appointment-actions"
 import { ClientSupport } from "./support-tickets"
@@ -33,6 +36,7 @@ type Filter = "upcoming" | "past" | "cancelled"
 
 // Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents, support et profil.
 export function ClientDashboard({ dict, bookingDict, types, formats, portal }: ClientDashboardProps) {
+  const formatDateTime = useDateFormatter()
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor, refresh, setMessage } = portal
   const [section, setSection] = useState<Section>("appointments")
   const [filter, setFilter] = useState<Filter>("upcoming")
@@ -68,6 +72,14 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
   const goal = Math.max(0, ...documents.map((document) => document.required_sessions))
   const nextUnlock = documents.find((document) => !document.unlocked)?.required_sessions
 
+  // Rendez-vous décrit pour l'agenda du client (libellés en clair).
+  const calendarEntry = (item: Appointment) => ({
+    id: item.id,
+    type: types[item.type],
+    format: formats[item.format],
+    starts: item.starts,
+    ends: item.ends,
+  })
   const duration = (item: Appointment) => `${Math.round((item.ends - item.starts) / 60000)} ${bookingDict.minutes}`
 
   return (
@@ -117,11 +129,14 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                 <ClockIcon className="size-4" />
                 {types[next.type]} · {duration(next)} · {formats[next.format]}
               </p>
-              {next.changeable ? (
-                <AppointmentActions appointment={next} {...actionProps} inverted />
-              ) : (
-                <p className="text-sm text-primary-foreground/75">{text.tooLate}</p>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(next)} variant="secondary" />
+                {next.changeable ? (
+                  <AppointmentActions appointment={next} {...actionProps} inverted />
+                ) : (
+                  <p className="text-sm text-primary-foreground/75">{text.tooLate}</p>
+                )}
+              </div>
             </>
           ) : (
             <Button variant="secondary" onClick={() => setSection("book")}>
@@ -184,6 +199,9 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {statusOf(item)}
+                        {filter === "upcoming" && (
+                          <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(item)} />
+                        )}
                         <AppointmentActions appointment={item} {...actionProps} />
                         {filter === "upcoming" && !item.changeable && (
                           <span className="text-sm text-muted-foreground">{text.tooLate}</span>
