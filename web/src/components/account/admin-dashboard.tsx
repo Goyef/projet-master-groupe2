@@ -15,6 +15,7 @@ import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
 import { ClientAccounts } from "./client-accounts"
+import { SlotSchedule } from "./slot-schedule"
 import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -328,27 +329,12 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
           {!data.slots?.length ? (
             <p className="text-muted-foreground">{dict.noSlots}</p>
           ) : (
-            <ul className="divide-y">
-              {data.slots.map((slot) => (
-                <li key={slot.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <span>
-                    {formatDateTime(slot.starts)} · {Math.round((slot.ends - slot.starts) / 60000)} min
-                  </span>
-                  {slot.appointment_id ? (
-                    <Badge variant="secondary">{dict.booked}</Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => act({ action: "remove-slot", id: slot.id }, { scope: "slots" })}
-                    >
-                      {dict.remove}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <SlotSchedule
+              slots={data.slots}
+              busy={busy}
+              onRemove={(id) => act({ action: "remove-slot", id }, { scope: "slots" })}
+              labels={{ booked: dict.booked, removeSlot: dict.removeSlot, slotCount: dict.slotCount }}
+            />
           )}
         </CardContent>
       </Card>
