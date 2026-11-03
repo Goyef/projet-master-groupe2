@@ -127,7 +127,20 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
         </CardContent>
       </Card>
 
-      <AdminAgenda dict={dict.agenda} agenda={data.agenda} />
+      <AdminAgenda
+        dict={dict.agenda}
+        agenda={data.agenda}
+        calendly={{
+          email: data.user?.email ?? "",
+          // Types d'événements « importés » dans la démo Calendly, repris des rendez-vous Synégo.
+          eventTypes: [
+            { label: types.vente, minutes: 45, slug: "appel-decouverte" },
+            { label: types.audit, minutes: 45, slug: "audit-seminaire" },
+            { label: types.suivi, minutes: 60, slug: "seance-de-suivi" },
+          ],
+          upcoming: (data.appointments ?? []).filter((item) => item.status === "confirmed" && !item.past).length,
+        }}
+      />
 
       <AdminSupport dict={dict.support} portal={portal} />
 
