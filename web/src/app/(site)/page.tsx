@@ -36,7 +36,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="relative mx-auto aspect-square w-full max-w-sm">
-          <div className="absolute inset-0 rounded-full bg-accent" />
+          <div className="absolute inset-0 rounded-full bg-accent dark:bg-brand-diamond" />
           <Image
             src="/brand/logo-transparent.png"
             alt={home.logoAlt}

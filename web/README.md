@@ -99,7 +99,19 @@ Palette dans `src/app/globals.css`, utilisable via les variables shadcn (`bg-pri
 | Champagne    | `#D9C9B4` | 7500 C        | `brand-champagne` |
 | Bleu diamant | `#D0E7F5` | 656 C         | `brand-diamond`   |
 
-Polices : **Inter** (`font-sans`) et **Cormorant Garamond** (`font-heading`). Logo : `public/brand/`.
+Logo : `public/brand/`.
+
+### Thèmes et mode sombre
+
+Le bouton palette de l'en-tête ouvre un menu unique pour choisir le **thème** et le **mode** (clair ou sombre). Le choix est mémorisé dans le navigateur (`localStorage`) et appliqué avant l'affichage, sans flash.
+
+| Thème                  | Couleurs                         | Polices (texte / titres)         | Arrondis |
+| ---------------------- | -------------------------------- | -------------------------------- | -------- |
+| Classique (par défaut) | Ivoire et bleu profond           | Inter / Cormorant Garamond       | Moyens   |
+| Élégant                | Champagne et bleu profond        | Source Sans 3 / Playfair Display | Droits   |
+| Moderne                | Blanc et bleu diamant            | Manrope / Manrope                | Arrondis |
+
+Le thème est porté par l'attribut `data-theme` de `<html>`, le mode sombre par la classe `dark` ; les variables de chaque combinaison sont dans `src/app/globals.css`, la logique dans `src/lib/theme.ts` et le menu dans `src/components/layout/theme-menu.tsx`. Les composants n'ont rien à faire de particulier tant qu'ils utilisent les variables du thème (`bg-background`, `text-foreground`, `bg-primary`…) ; la variante `dark:` reste disponible pour les rares cas où un élément doit changer en mode sombre (logo posé sur une pastille claire, par exemple).
 
 ## À finaliser avec Youcef
 
