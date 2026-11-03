@@ -508,7 +508,7 @@ export const texts = {
       },
       {
         title: "Cookies",
-        text: "Le site n’utilise qu’un cookie strictement nécessaire : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures). Il ne nécessite pas votre consentement. Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
+        text: "Le site n’utilise que des cookies strictement nécessaires, qui ne demandent pas votre consentement : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures) et le cookie synego-locale, qui mémorise la langue choisie pendant un an. Le thème d’affichage choisi est enregistré uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
       },
       {
         title: "Durées de conservation",
@@ -525,12 +525,6 @@ export const texts = {
         text: "Les échanges avec le site sont chiffrés (HTTPS) et la connexion entre le site et la base de données est chiffrée (TLS). L’accès aux données est réservé à Youcef ; chaque client ne voit que ses propres informations.",
       },
       {
-        title: "Langue du site",
-        text: "Le cookie synego-locale mémorise la langue choisie pendant un an. Il sert uniquement à retrouver cette préférence lors de vos prochaines visites.",
-      },
-      {
-        title: "À compléter",
-        text: "L’identité du responsable de traitement, le contact pour exercer vos droits, les durées de conservation et l’hébergeur doivent être définis avec Youcef.",
         title: "Vos droits",
         text: "Vous pouvez accéder à vos données, les rectifier ou les supprimer, vous opposer à leur traitement, en demander la limitation ou la portabilité, retirer votre consentement à tout moment et définir des directives sur leur sort après votre décès. Votre nom et votre téléphone se modifient directement dans l’espace client ; pour toute autre demande, écrivez au contact indiqué ci-dessus (réponse sous un mois). En cas de désaccord, vous pouvez saisir la CNIL (cnil.fr).",
       },
