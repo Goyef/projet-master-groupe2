@@ -9,6 +9,7 @@ import {
   availableSlots,
   cancelAppointment,
   changePassword,
+  completedSessions,
   currentUser,
   getDocument,
   listAppointments,
@@ -17,6 +18,7 @@ import {
   listUpcomingSlots,
   login,
   logout,
+  MAX_REQUIRED_SESSIONS,
   removeDocument,
   removeSlot,
   registerClient,
@@ -56,6 +58,7 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   slotInvalid: "ends",
   slotOverlap: "starts",
   pdfInvalid: "file",
+  sessionsInvalid: "required_sessions",
 };
 
 function failure(code: ErrorCode, status = 400, detail?: string) {
@@ -128,17 +131,18 @@ export async function GET(request: NextRequest) {
     }
     if (!user) return response({ user: null });
     const admin = user.role === "admin";
-    const [appointments, documents, clients, slots] = await Promise.all([
+    const [appointments, documents, clients, slots, sessions] = await Promise.all([
       listAppointments(user),
       listDocuments(user),
       admin ? listClients() : undefined,
       admin ? listUpcomingSlots() : undefined,
+      admin ? undefined : completedSessions(user.id),
     ]);
     return response({
       user: { name: user.name, email: user.email, role: user.role, phone: user.phone },
       appointments,
       documents,
-      ...(admin ? { clients, slots } : {}),
+      ...(admin ? { clients, slots } : { completedSessions: sessions }),
     });
   } catch (error) {
     return handle(error);
@@ -176,7 +180,15 @@ export async function POST(request: NextRequest) {
       if (bytes.subarray(0, 5).toString() !== "%PDF-")
         throw new AppError("pdfInvalid");
       const recipient = form.get("user_id") ? id(form.get("user_id")) : null;
-      await addDocument(title, bytes, recipient);
+      // Séances réalisées nécessaires avant que le client puisse ouvrir le document.
+      const requiredSessions = Number(form.get("required_sessions") || 0);
+      if (
+        !Number.isSafeInteger(requiredSessions) ||
+        requiredSessions < 0 ||
+        requiredSessions > MAX_REQUIRED_SESSIONS
+      )
+        throw new AppError("sessionsInvalid", 400, `required_sessions=${form.get("required_sessions")}`);
+      await addDocument(title, bytes, recipient, requiredSessions);
       return response({ ok: true });
     }
     const data = (await request.json()) as Record<string, unknown>;

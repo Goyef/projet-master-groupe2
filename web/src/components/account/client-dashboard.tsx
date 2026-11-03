@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarPlusIcon, ClockIcon, DownloadIcon, LogOutIcon } from "lucide-react"
+import { CalendarPlusIcon, ClockIcon, DownloadIcon, LockIcon, LogOutIcon } from "lucide-react"
 
 import { BookingForm, type BookingFormProps } from "@/components/booking/booking-form"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
@@ -57,6 +58,12 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
     if (!item.past) return <Badge variant="secondary">{dict.statusConfirmed}</Badge>
     return <Badge variant={item.completed ? "default" : "outline"}>{item.completed ? dict.statusDone : dict.statusPast}</Badge>
   }
+  // Parcours : les documents se débloquent selon le nombre de séances réalisées.
+  const documents = data.documents ?? []
+  const done = data.completedSessions ?? 0
+  const goal = Math.max(0, ...documents.map((document) => document.required_sessions))
+  const nextUnlock = documents.find((document) => !document.unlocked)?.required_sessions
+
   const duration = (item: Appointment) => `${Math.round((item.ends - item.starts) / 60000)} ${bookingDict.minutes}`
 
   return (
@@ -186,24 +193,52 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
               <CardTitle className="text-2xl">{dict.documentsClient}</CardTitle>
               <CardDescription>{dict.documentsIntro}</CardDescription>
             </CardHeader>
-            <CardContent>
-              {!data.documents?.length ? (
+            <CardContent className="space-y-6">
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">{text.journeyTitle}</p>
+                {goal > 0 ? (
+                  <Progress value={Math.min(done, goal)} max={goal}>
+                    <ProgressLabel>{format(text.journeyDone, { count: done })}</ProgressLabel>
+                    <ProgressValue>{(_, value) => `${value} / ${goal}`}</ProgressValue>
+                  </Progress>
+                ) : (
+                  <p className="text-sm font-medium">{format(text.journeyDone, { count: done })}</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {nextUnlock !== undefined
+                    ? format(text.journeyNext, { count: nextUnlock })
+                    : goal > 0
+                      ? text.journeyComplete
+                      : text.journeyEmpty}
+                </p>
+              </div>
+              {!documents.length ? (
                 <p className="text-muted-foreground">{dict.noDocuments}</p>
               ) : (
                 <ul className="divide-y">
-                  {data.documents.map((document) => (
-                    <li key={document.id} className="py-3">
-                      <Button
-                        variant="link"
-                        className="px-0"
-                        render={<a href={`/api/portal?action=document&id=${document.id}`} />}
-                        nativeButton={false}
-                      >
-                        <DownloadIcon data-icon="inline-start" />
-                        {document.title}
-                      </Button>
-                    </li>
-                  ))}
+                  {documents.map((document) =>
+                    document.unlocked ? (
+                      <li key={document.id} className="py-3">
+                        <Button
+                          variant="link"
+                          className="px-0"
+                          render={<a href={`/api/portal?action=document&id=${document.id}`} />}
+                          nativeButton={false}
+                        >
+                          <DownloadIcon data-icon="inline-start" />
+                          {document.title}
+                        </Button>
+                      </li>
+                    ) : (
+                      <li key={document.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <p className="flex items-center gap-2 text-muted-foreground">
+                          <LockIcon className="size-4" aria-label={text.documentLockedLabel} />
+                          {document.title}
+                        </p>
+                        <Badge variant="outline">{format(text.documentLocked, { count: document.required_sessions })}</Badge>
+                      </li>
+                    ),
+                  )}
                 </ul>
               )}
             </CardContent>

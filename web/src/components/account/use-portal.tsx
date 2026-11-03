@@ -27,7 +27,9 @@ export type Client = { id: number; name: string; email: string; phone: string | 
 export type PortalData = {
   user: { name: string; email: string; role: "admin" | "client"; phone: string | null } | null
   appointments?: Appointment[]
-  documents?: { id: number; title: string; user_id: number | null }[]
+  // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
+  documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
+  completedSessions?: number
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
 }

@@ -509,6 +509,65 @@ test(
         (await request(documentUrl, "", "GET")).response.status,
         401,
       );
+      // Parcours : un document se débloque après un nombre de séances réalisées.
+      const bobId = clients.find((client) => client.email === "bob@example.test").id;
+      const share = (title, requiredSessions) => {
+        const form = new FormData();
+        form.set("title", title);
+        form.set("user_id", String(bobId));
+        form.set("required_sessions", String(requiredSessions));
+        form.set(
+          "file",
+          new Blob(["%PDF-1.4\n%%EOF"], { type: "application/pdf" }),
+          "parcours.pdf",
+        );
+        return request(form, admin);
+      };
+      const invalidThreshold = await share("Seuil négatif", -1);
+      assert.equal(invalidThreshold.response.status, 400);
+      assert.equal(invalidThreshold.data.field, "required_sessions");
+      assert.equal((await share("Après la première séance", 1)).response.status, 200);
+      let bobView = (await request("", bob, "GET")).data;
+      assert.equal(bobView.completedSessions, 0);
+      const stepDocument = bobView.documents.find(
+        (item) => item.title === "Après la première séance",
+      );
+      assert.deepEqual([stepDocument.required_sessions, stepDocument.unlocked], [1, false]);
+      const stepUrl = "?action=document&id=" + stepDocument.id;
+      const locked = await request(stepUrl, bob, "GET");
+      assert.equal(locked.response.status, 403);
+      assert.equal(locked.data.code, "documentLocked");
+      // Le gérant ouvre tous les documents, verrouillés ou non.
+      assert.equal((await request(stepUrl, admin, "GET")).response.status, 200);
+      // Une séance à venir ne peut pas être marquée réalisée : on la place dans le passé.
+      assert.equal(
+        (await request({ action: "complete", id: bobSoon.id }, admin)).response.status,
+        409,
+      );
+      const testDatabase = new pg.Client({ connectionString: databaseUrl.toString() });
+      await testDatabase.connect();
+      await testDatabase.query(
+        "UPDATE appointments SET starts = starts - interval '1 day', ends = ends - interval '1 day' WHERE id = $1",
+        [bobSoon.id],
+      );
+      await testDatabase.end();
+      assert.equal(
+        (await request({ action: "complete", id: bobSoon.id }, admin)).response.status,
+        200,
+      );
+      bobView = (await request("", bob, "GET")).data;
+      assert.equal(bobView.completedSessions, 1);
+      assert.equal(
+        bobView.documents.find((item) => item.id === stepDocument.id).unlocked,
+        true,
+      );
+      assert.equal((await request(stepUrl, bob, "GET")).response.status, 200);
+      // Corriger le statut de la séance reverrouille le document.
+      assert.equal(
+        (await request({ action: "complete", id: bobSoon.id }, admin)).response.status,
+        200,
+      );
+      assert.equal((await request(stepUrl, bob, "GET")).response.status, 403);
       assert.equal(
         (
           await request(

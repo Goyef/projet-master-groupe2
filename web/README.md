@@ -39,6 +39,7 @@ pnpm dev              # http://localhost:3000
 - **Comptes clients** (`/connexion`, onglet « Créer un compte ») : chaque client crée lui-même son compte (nom, e-mail, téléphone, mot de passe de 12 caractères minimum) et est connecté immédiatement. Le gérant ne crée pas de compte ; il voit la liste des clients et peut désactiver ou réactiver un compte.
 - **Espace client** : prochain rendez-vous mis en avant ; rendez-vous à venir, passés et annulés, avec annulation et déplacement ; réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli ; documents partagés ; profil (nom, téléphone) et changement de mot de passe, qui déconnecte les autres appareils.
 - **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, liste des comptes clients.
+- **Parcours client** : au partage d'un PDF, le gérant indique après combien de séances réalisées il devient accessible (0 = tout de suite, 50 au maximum). Une séance compte quand c'est un suivi confirmé que le gérant a marqué « réalisé ». Dans l'onglet « Documents », le client voit sa progression, ses documents débloqués et les suivants, verrouillés (« Disponible après la séance N »). Le serveur refuse le téléchargement d'un document verrouillé ; le gérant accède à tous les documents. Les types de rendez-vous qui comptent sont listés dans `SESSION_TYPES` (`src/lib/store.ts`).
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
 
@@ -59,7 +60,7 @@ pnpm build
 pnpm test
 ```
 
-Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), le profil et le mot de passe, les accès gérant/client, les documents privés, la désactivation et la déconnexion.
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), le profil et le mot de passe, les accès gérant/client, les documents privés, le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), la désactivation et la déconnexion.
 
 ## Structure
 

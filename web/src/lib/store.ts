@@ -6,7 +6,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
@@ -335,32 +335,63 @@ export async function changePassword(
     );
 }
 
-export async function listDocuments(user: User) {
+// Types de rendez-vous qui comptent comme une séance du parcours client.
+const SESSION_TYPES: AppointmentType[] = ["suivi"];
+export const MAX_REQUIRED_SESSIONS = 50;
+
+// Séances réalisées par le client : rendez-vous confirmés que le gérant a marqués « réalisés ».
+export async function completedSessions(userId: number) {
   const database = await db();
-  return database
-    .select({ id: documents.id, title: documents.title, user_id: documents.userId })
-    .from(documents)
+  const [row] = await database
+    .select({ total: count() })
+    .from(appointments)
     .where(
-      user.role === "admin"
-        ? undefined
-        : sql`${documents.userId} IS NULL OR ${documents.userId} = ${user.id}`,
+      and(
+        eq(appointments.userId, userId),
+        eq(appointments.completed, true),
+        eq(appointments.status, "confirmed"),
+        inArray(appointments.type, SESSION_TYPES),
+      ),
     );
+  return row?.total ?? 0;
 }
 
+const visibleTo = (user: User) =>
+  user.role === "admin"
+    ? undefined
+    : sql`(${documents.userId} IS NULL OR ${documents.userId} = ${user.id})`;
+
+// Le gérant voit tout ; le client voit aussi les documents encore verrouillés, sans pouvoir les ouvrir.
+export async function listDocuments(user: User) {
+  const database = await db();
+  const rows = await database
+    .select({
+      id: documents.id,
+      title: documents.title,
+      user_id: documents.userId,
+      required_sessions: documents.requiredSessions,
+    })
+    .from(documents)
+    .where(visibleTo(user))
+    .orderBy(asc(documents.requiredSessions), asc(documents.id));
+  const done = user.role === "admin" ? Infinity : await completedSessions(user.id);
+  return rows.map((row) => ({ ...row, unlocked: row.required_sessions <= done }));
+}
+
+// Contenu du document, ou `locked` si le client n'a pas encore réalisé assez de séances.
 export async function getDocument(user: User, id: number) {
   const database = await db();
   const [document] = await database
-    .select({ content: documents.content })
+    .select({ content: documents.content, requiredSessions: documents.requiredSessions })
     .from(documents)
-    .where(
-      and(
-        eq(documents.id, id),
-        user.role === "admin"
-          ? undefined
-          : sql`(${documents.userId} IS NULL OR ${documents.userId} = ${user.id})`,
-      ),
-    );
-  return document ?? null;
+    .where(and(eq(documents.id, id), visibleTo(user)));
+  if (!document) return null;
+  if (
+    user.role !== "admin" &&
+    document.requiredSessions > (await completedSessions(user.id))
+  )
+    throw new AppError("documentLocked", 403);
+  return document;
 }
 
 export async function listClients() {
@@ -489,7 +520,12 @@ export async function toggleClient(id: number) {
   await database.delete(sessions).where(eq(sessions.userId, id));
 }
 
-export async function addDocument(title: string, content: Buffer, recipient: number | null) {
+export async function addDocument(
+  title: string,
+  content: Buffer,
+  recipient: number | null,
+  requiredSessions = 0,
+) {
   const database = await db();
   if (recipient) {
     const [client] = await database
@@ -498,7 +534,9 @@ export async function addDocument(title: string, content: Buffer, recipient: num
       .where(and(eq(users.id, recipient), eq(users.role, "client")));
     if (!client) throw new AppError("clientNotFound", 404);
   }
-  await database.insert(documents).values({ title, content, userId: recipient });
+  await database
+    .insert(documents)
+    .values({ title, content, userId: recipient, requiredSessions });
 }
 
 export async function removeDocument(id: number) {

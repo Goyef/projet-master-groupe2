@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "required_sessions" integer DEFAULT 0 NOT NULL;
