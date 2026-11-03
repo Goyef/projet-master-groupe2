@@ -12,9 +12,13 @@ import { currentUser, type User } from "@/lib/store"
 
 // Compte connecté, s'il y en a un. Une base indisponible ne doit pas casser l'en-tête :
 // le visiteur voit alors simplement « Se connecter ».
+// Le cookie est lu hors du try : Next.js signale par une exception qu'il doit rendre la page
+// à chaque requête, et ce signal ne doit pas être intercepté. Seule une erreur de base est rattrapée.
 async function signedInUser(): Promise<User | null> {
+  const token = (await cookies()).get("session")?.value
+  if (!token) return null
   try {
-    return await currentUser((await cookies()).get("session")?.value)
+    return await currentUser(token)
   } catch (error) {
     console.error("[en-tête] session illisible :", error)
     return null

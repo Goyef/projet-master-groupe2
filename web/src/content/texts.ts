@@ -3,7 +3,6 @@ export const texts = {
   language: { open: "Changer de langue", label: "Langue" },
   common: {
     close: "Fermer",
-    demoNotice: "Projet scolaire · Textes à valider · Utilisez des données de test",
     notFoundTitle: "Page introuvable",
     notFoundText: "Cette page n’existe pas ou a été déplacée.",
     backHome: "Retour à l’accueil",
