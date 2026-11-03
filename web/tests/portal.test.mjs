@@ -218,6 +218,19 @@ test(
         [registeredView.role, registeredView.phone, registeredView.passwordTemporary],
         ["client", "06 11 22 33 44", false],
       );
+      // Bouton d'accès de l'en-tête : « Se connecter » pour un visiteur, sinon l'espace du compte.
+      const headerLabel = async (cookie = "") => {
+        const html = await (
+          await fetch(origin + "/", {
+            headers: { "Accept-Language": "fr", ...(cookie ? { Cookie: cookie } : {}) },
+          })
+        ).text();
+        return html.match(/data-slot="button"[^>]*href="\/connexion">([^<]+)</)?.[1];
+      };
+      assert.equal(await headerLabel(), "Se connecter");
+      assert.equal(await headerLabel("session=jeton-inconnu"), "Se connecter");
+      assert.equal(await headerLabel(registeredSession), "Espace client");
+      assert.equal(await headerLabel(admin), "Espace gérant");
       const duplicate = await signUp();
       assert.equal(duplicate.response.status, 409);
       assert.equal(duplicate.data.field, "email");
@@ -330,6 +343,18 @@ test(
       assert.ok(googleEvent.description.includes(prospect.phone));
       assert.ok(googleEvent.description.includes("https://synego.example.test/connexion"));
       assert.ok(!googleEvent.description.includes(prospect.intention));
+      // Même demande renvoyée (double clic, réseau) : la réservation est confirmée à nouveau,
+      // pas refusée comme « créneau déjà réservé ». Une autre personne reste refusée.
+      const repeatedProspect = await request({ ...prospect, slot: prospectSlot });
+      assert.equal(repeatedProspect.response.status, 200);
+      assert.equal(repeatedProspect.data.reference, booked.data.reference);
+      const otherProspect = await request({
+        ...prospect,
+        slot: prospectSlot,
+        email: "quelqu-un-d-autre@example.test",
+      });
+      assert.equal(otherProspect.response.status, 409);
+      assert.equal(otherProspect.data.code, "slotTaken");
       const adminView = (await request("", admin, "GET")).data;
       assert.equal(adminView.appointments[0].phone, prospect.phone);
       assert.equal(adminView.appointments[0].intention, prospect.intention);
@@ -423,6 +448,51 @@ test(
         competing.map((value) => value.response.status).sort(),
         [200, 409],
       );
+      // Ticket : créneau créé par le gérant, réservé par un client dont la demande part deux fois.
+      const doubleStart = starts + 6 * 86400000;
+      assert.equal(
+        (
+          await request(
+            { action: "add-slot", starts: doubleStart, ends: doubleStart + 3600000, minutes: 60 },
+            admin,
+          )
+        ).response.status,
+        200,
+      );
+      const doubleSlot = (await request("?action=slots&type=suivi", registeredSession, "GET")).data.slots.find(
+        (item) => item.starts === doubleStart,
+      ).id;
+      const doubleBooking = {
+        action: "reserve",
+        type: "suivi",
+        format: "visio",
+        slot: doubleSlot,
+        phone: "06 11 22 33 44",
+        intention: "Séance réservée deux fois par erreur.",
+        consent: true,
+      };
+      const twice = await Promise.all([
+        request(doubleBooking, registeredSession),
+        request(doubleBooking, registeredSession),
+      ]);
+      assert.deepEqual(
+        twice.map((value) => value.response.status),
+        [200, 200],
+      );
+      assert.equal(twice[0].data.reference, twice[1].data.reference);
+      const again = await request(doubleBooking, registeredSession);
+      assert.equal(again.response.status, 200);
+      assert.equal(again.data.reference, twice[0].data.reference);
+      assert.equal(
+        (await request("", registeredSession, "GET")).data.appointments.filter(
+          (item) => item.starts === doubleStart,
+        ).length,
+        1,
+      );
+      // Un autre client voit toujours le créneau comme pris.
+      const stolen = await request({ ...doubleBooking, phone: "06 00 00 00 00" }, bob);
+      assert.equal(stolen.response.status, 409);
+      assert.equal(stolen.data.code, "slotTaken");
       assert.ok(
         !(await request("?action=slots&type=audit", "", "GET")).data.slots.some(
           (item) => item.id === slot,
@@ -638,7 +708,7 @@ test(
       const aliceId = clients.find((client) => client.email === "alice@example.test").id;
       const pdf = new FormData();
       pdf.set("title", "Document privé Alice");
-      pdf.set("user_id", String(aliceId));
+      pdf.append("user_ids", String(aliceId));
       pdf.set(
         "file",
         new Blob(["%PDF-1.4\n%%EOF"], { type: "application/pdf" }),
@@ -661,6 +731,57 @@ test(
         (await request(documentUrl, "", "GET")).response.status,
         401,
       );
+      // Partage avec plusieurs clients choisis, ou avec tous les clients.
+      const bobClientId = clients.find((client) => client.email === "bob@example.test").id;
+      const sharePdf = (title, recipients) => {
+        const form = new FormData();
+        form.set("title", title);
+        if (recipients === "all") form.set("all_clients", "true");
+        else for (const recipient of recipients) form.append("user_ids", String(recipient));
+        form.set("file", new Blob(["%PDF-1.4\n%%EOF"], { type: "application/pdf" }), "partage.pdf");
+        return request(form, admin);
+      };
+      const noRecipient = await sharePdf("Sans destinataire", []);
+      assert.equal(noRecipient.response.status, 400);
+      assert.equal(noRecipient.data.field, "recipients");
+      assert.equal((await sharePdf("Client inconnu", [aliceId, 999999])).response.status, 404);
+      // Le gérant n'est pas un client : il ne peut pas être destinataire.
+      // (Base de test neuve : le compte gérant est le premier créé, donc l'id 1.)
+      assert.equal((await sharePdf("Destinataire gérant", [1])).response.status, 404);
+      // Doublons ignorés : Alice n'est enregistrée qu'une fois.
+      assert.equal((await sharePdf("Alice et Bob", [aliceId, bobClientId, aliceId])).response.status, 200);
+      const titlesOf = async (cookie) =>
+        (await request("", cookie, "GET")).data.documents.map((item) => item.title).sort();
+      assert.deepEqual(await titlesOf(alice), ["Alice et Bob", "Document privé Alice"]);
+      assert.deepEqual(await titlesOf(bob), ["Alice et Bob"]);
+      assert.deepEqual(await titlesOf(registeredSession), []);
+      // Le client ne voit pas la liste des autres destinataires ; le gérant, si.
+      const aliceShared = (await request("", alice, "GET")).data.documents.find(
+        (item) => item.title === "Alice et Bob",
+      );
+      assert.equal(aliceShared.recipients, undefined);
+      const adminShared = (await request("", admin, "GET")).data.documents.find(
+        (item) => item.title === "Alice et Bob",
+      );
+      assert.deepEqual(
+        [adminShared.all_clients, [...adminShared.recipients].sort((a, b) => a - b)],
+        [false, [aliceId, bobClientId].sort((a, b) => a - b)],
+      );
+      assert.equal(
+        (await request("?action=document&id=" + aliceShared.id, registeredSession, "GET")).response
+          .status,
+        404,
+      );
+      assert.equal((await sharePdf("Pour tous", "all")).response.status, 200);
+      assert.deepEqual(await titlesOf(registeredSession), ["Pour tous"]);
+      assert.ok((await titlesOf(bob)).includes("Pour tous"));
+      // Les documents ajoutés ici ne doivent pas perturber la suite : on les retire.
+      for (const item of (await request("", admin, "GET")).data.documents)
+        if (["Alice et Bob", "Pour tous"].includes(item.title))
+          assert.equal(
+            (await request({ action: "remove-document", id: item.id }, admin)).response.status,
+            200,
+          );
       // Espace de tickets : une demande est déposée, suivie, puis clôturée.
       assert.equal(
         (await request({ action: "create-ticket", subject: "Sans compte", message: "…" }))
@@ -767,7 +888,7 @@ test(
       const share = (title, requiredSessions) => {
         const form = new FormData();
         form.set("title", title);
-        form.set("user_id", String(bobId));
+        form.append("user_ids", String(bobId));
         form.set("required_sessions", String(requiredSessions));
         form.set(
           "file",

@@ -5,7 +5,6 @@ export const english: Texts = {
   language: { open: "Change language", label: "Language" },
   common: {
     close: "Close",
-    demoNotice: "Student project · Draft content · Please use test data",
     notFoundTitle: "Page not found",
     notFoundText: "This page does not exist or has moved.",
     backHome: "Back to home",
@@ -13,7 +12,7 @@ export const english: Texts = {
   meta: { description: "Synégo — coaching and therapy to understand emotional emptiness and rediscover your sense of direction." },
   nav: {
     home: "Home", coaching: "Our approach", seminars: "Seminars", booking: "Appointments",
-    clientArea: "Client area", bookCta: "Book a call", menu: "Menu", openMenu: "Open menu",
+    clientArea: "Client area", login: "Sign in", adminArea: "Owner area", bookCta: "Book a call", menu: "Menu", openMenu: "Open menu",
     mainLabel: "Main navigation", mobileLabel: "Mobile navigation",
   },
   theme: {
@@ -141,7 +140,9 @@ export const english: Texts = {
     markDone: "Mark as completed", unmarkDone: "Correct status", bookTitle: "Book an appointment",
     documentsAdmin: "Shared documents", documentsClient: "My documents", documentsIntro: "Resources to support your progress.",
     noDocuments: "No documents have been shared yet.", allClients: "All clients", remove: "Remove",
-    shareTitle: "Share a document", docTitle: "Title", recipient: "Recipient", pdf: "PDF · maximum 5 MB",
+    shareTitle: "Share a document", docTitle: "Title", recipients: "Recipients", selectedClients: "Selected clients",
+    recipientsSearch: "Search for a client…", recipientsEmpty: "No client found.",
+    recipientsHint: "Choose one or more clients.", recipientsCount: "{count} client(s)", pdf: "PDF · maximum 5 MB",
     requiredSessions: "Available after (completed sessions)",
     requiredSessionsHint: "0: available immediately. Otherwise, the document becomes available once this many follow-up sessions have been marked as completed.",
     documentImmediate: "Available immediately", documentAfter: "After {count} session(s)", share: "Share PDF",
@@ -234,6 +235,7 @@ export const english: Texts = {
     slotNotRemovable: "A booked or missing time slot cannot be removed.", notStartedYet: "A session cannot be marked as completed before it starts.",
     emailTaken: "An account already exists with this email address.", passwordTooShort: "Your password must contain at least 12 characters.",
     pdfInvalid: "Choose a PDF smaller than 5 MB and enter a title.", clientNotFound: "Client not found.",
+    recipientsRequired: "Choose at least one client to share with.",
     tooManyAttempts: "Too many attempts. Please try again in 15 minutes.", badCredentials: "Incorrect sign-in details.",
     loginRequired: "Please sign in.", adminRequired: "Admin access required.", documentNotFound: "Document not found.",
     documentLocked: "This document is not available yet. It will become available as you complete your sessions.",

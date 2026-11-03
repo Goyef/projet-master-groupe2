@@ -2,6 +2,7 @@
 
 import { useLocalizedFetch } from "@/components/i18n/locale-provider"
 
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { CircleAlertIcon, CircleCheckIcon } from "lucide-react"
 
@@ -59,7 +60,15 @@ export type PortalData = {
   } | null
   appointments?: Appointment[]
   // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
-  documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
+  // `recipients` : clients destinataires, renvoyés au gérant uniquement (vide si `all_clients`).
+  documents?: {
+    id: number
+    title: string
+    all_clients: boolean
+    recipients?: number[]
+    required_sessions: number
+    unlocked: boolean
+  }[]
   completedSessions?: number
   tickets?: Ticket[]
   clients?: Client[]
@@ -76,6 +85,7 @@ export type ActOptions = { success?: (result: Record<string, string | number>) =
 // État partagé de l'espace connecté : données, envoi des actions et messages de retour.
 export function usePortal(networkError: string, savedText: string) {
   const localizedFetch = useLocalizedFetch()
+  const router = useRouter()
   const [data, setData] = useState<PortalData | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const [busy, setBusy] = useState(false)
@@ -116,6 +126,10 @@ export function usePortal(networkError: string, savedText: string) {
         return false
       }
       await refresh()
+      // Connexion, inscription ou déconnexion : l'en-tête (« Se connecter » / « Espace client »)
+      // est rendu côté serveur, on le met à jour sans recharger la page.
+      if (!(payload instanceof FormData) && ["login", "register", "logout"].includes(String(payload.action)))
+        router.refresh()
       setMessage({ ok: true, text: success ? success(result) : savedText, scope })
       return true
     } catch (error) {

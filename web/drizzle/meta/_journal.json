@@ -36,6 +36,20 @@
       "when": 1793698173840,
       "tag": "0004_espace_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793711355667,
+      "tag": "0005_documents_plusieurs_destinataires",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793711362983,
+      "tag": "0006_documents_retrait_destinataire_unique",
+      "breakpoints": true
     }
   ]
 }

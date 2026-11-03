@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { cookies } from "next/headers"
 
 import { Logo } from "@/components/layout/logo"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -7,11 +8,31 @@ import { LanguageMenu } from "@/components/layout/language-menu"
 import { Button } from "@/components/ui/button"
 import { mainNav } from "@/config/site"
 import { getTexts } from "@/lib/i18n-server"
+import { currentUser, type User } from "@/lib/store"
+
+// Compte connecté, s'il y en a un. Une base indisponible ne doit pas casser l'en-tête :
+// le visiteur voit alors simplement « Se connecter ».
+// Le cookie est lu hors du try : Next.js signale par une exception qu'il doit rendre la page
+// à chaque requête, et ce signal ne doit pas être intercepté. Seule une erreur de base est rattrapée.
+async function signedInUser(): Promise<User | null> {
+  const token = (await cookies()).get("session")?.value
+  if (!token) return null
+  try {
+    return await currentUser(token)
+  } catch (error) {
+    console.error("[en-tête] session illisible :", error)
+    return null
+  }
+}
 
 export async function SiteHeader() {
-  const dict = await getTexts()
+  const [dict, user] = await Promise.all([getTexts(), signedInUser()])
   const items = mainNav.map((item) => ({ title: dict.nav[item.key], href: item.href }))
-  const clientArea = { title: dict.nav.clientArea, href: "/connexion" }
+  // « Se connecter » pour un visiteur, « Espace client » (ou « Espace gérant ») une fois connecté.
+  const clientArea = {
+    title: !user ? dict.nav.login : user.role === "admin" ? dict.nav.adminArea : dict.nav.clientArea,
+    href: "/connexion",
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur supports-backdrop-filter:bg-background/75">

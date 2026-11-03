@@ -8,21 +8,19 @@ import { DownloadIcon, LogOutIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
 import { ClientAccounts } from "./client-accounts"
+import { ShareDocumentForm } from "./share-document-form"
 import { SlotSchedule } from "./slot-schedule"
 import { AdminAgenda } from "./admin-agenda"
 import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
-
-const ALL_CLIENTS = "all"
 
 // Empêche de choisir une date passée dans le sélecteur du navigateur (heure locale de l'appareil).
 function limitToFuture(event: FocusEvent<HTMLInputElement>) {
@@ -52,8 +50,14 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
   const formatDateTime = useDateFormatter()
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor } = portal
   if (!data?.user) return null
-  const clientName = (id: number | null) =>
-    id ? data.clients?.find((client) => client.id === id)?.name : dict.allClients
+  // Destinataires d'un document : « Tous les clients » ou les noms des clients choisis.
+  const recipientNames = (document: { all_clients: boolean; recipients?: number[] }) =>
+    document.all_clients
+      ? dict.allClients
+      : (document.recipients ?? [])
+          .map((id) => data.clients?.find((client) => client.id === id)?.name)
+          .filter(Boolean)
+          .join(", ")
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-16 sm:px-6">
@@ -155,7 +159,9 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
                         ? format(dict.documentAfter, { count: document.required_sessions })
                         : dict.documentImmediate}
                     </Badge>
-                    <span className="text-sm text-muted-foreground">{clientName(document.user_id)}</span>
+                    <span className="max-w-xs truncate text-sm text-muted-foreground" title={recipientNames(document)}>
+                      {recipientNames(document)}
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -169,93 +175,7 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
               ))}
             </ul>
           )}
-          <form
-            onSubmit={async (event) => {
-              event.preventDefault()
-              const form = event.currentTarget
-              const fields = new FormData(form)
-              if (fields.get("user_id") === ALL_CLIENTS) fields.delete("user_id")
-              if (await act(fields, { scope: "documents" })) form.reset()
-            }}
-          >
-            <FieldGroup>
-              <h3 className="text-xl font-semibold">{dict.shareTitle}</h3>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field>
-                  <FieldLabel htmlFor="doc-title" data-invalid={isInvalid("documents", "title")}>
-                    {dict.docTitle}
-                  </FieldLabel>
-                  <Input
-                    id="doc-title"
-                    aria-invalid={isInvalid("documents", "title")}
-                    name="title"
-                    required
-                    maxLength={160}
-                  />
-                  {errorFor("documents", "title")}
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="doc-recipient">{dict.recipient}</FieldLabel>
-                  <Select
-                    name="user_id"
-                    defaultValue={ALL_CLIENTS}
-                    items={[
-                      { value: ALL_CLIENTS, label: dict.allClients },
-                      ...(data.clients ?? []).map((client) => ({ value: String(client.id), label: client.name })),
-                    ]}
-                  >
-                    <SelectTrigger id="doc-recipient" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL_CLIENTS}>{dict.allClients}</SelectItem>
-                      {data.clients?.map((client) => (
-                        <SelectItem key={client.id} value={String(client.id)}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="doc-sessions" data-invalid={isInvalid("documents", "required_sessions")}>
-                    {dict.requiredSessions}
-                  </FieldLabel>
-                  <Input
-                    id="doc-sessions"
-                    aria-invalid={isInvalid("documents", "required_sessions")}
-                    name="required_sessions"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={50}
-                    step={1}
-                    defaultValue={0}
-                    required
-                  />
-                  <FieldDescription>{dict.requiredSessionsHint}</FieldDescription>
-                  {errorFor("documents", "required_sessions")}
-                </Field>
-              </div>
-              <Field>
-                <FieldLabel htmlFor="doc-file" data-invalid={isInvalid("documents", "file")}>
-                  {dict.pdf}
-                </FieldLabel>
-                <Input
-                  id="doc-file"
-                  aria-invalid={isInvalid("documents", "file")}
-                  name="file"
-                  type="file"
-                  accept="application/pdf"
-                  required
-                />
-                {errorFor("documents", "file")}
-              </Field>
-              <Button type="submit" className="w-fit" disabled={busy}>
-                {dict.share}
-              </Button>
-            </FieldGroup>
-          </form>
+          <ShareDocumentForm dict={dict} portal={portal} />
         </CardContent>
       </Card>
 

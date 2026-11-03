@@ -3,7 +3,7 @@
 import { useDateFormatter, useLocalizedFetch } from "@/components/i18n/locale-provider"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CircleCheckIcon, CircleAlertIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -56,6 +56,8 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
   const [loadedKey, setLoadedKey] = useState("")
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
+  // Une seule réservation à la fois : un double clic n'envoie pas deux demandes.
+  const submitting = useRef(false)
   // `field` : champ fautif renvoyé par l'API ; l'erreur s'affiche alors sous ce champ.
   const [result, setResult] = useState<{ ok: boolean; message: string; field?: string } | null>(null)
   // Rendez-vous qui vient d'être réservé : proposé à l'ajout dans l'agenda du client.
@@ -90,6 +92,8 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitting.current) return
+    submitting.current = true
     const form = event.currentTarget
     const fields = new FormData(form)
     setBusy(true)
@@ -137,6 +141,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
       setSlot("")
       setRevision((value) => value + 1)
       setBusy(false)
+      submitting.current = false
     }
   }
 
