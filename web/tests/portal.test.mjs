@@ -323,6 +323,47 @@ test(
         ).response.status,
         401,
       );
+      // Séance individuelle (1 h) : réservée aux clients connectés.
+      assert.equal(
+        (await request("?action=slots&type=individuelle", "", "GET")).response
+          .status,
+        401,
+      );
+      const individualSlot = (
+        await request("?action=slots&type=individuelle", alice, "GET")
+      ).data.slots[0].id;
+      assert.equal(
+        (
+          await request({
+            ...prospect,
+            type: "individuelle",
+            slot: individualSlot,
+          })
+        ).response.status,
+        401,
+      );
+      assert.equal(
+        (
+          await request(
+            {
+              action: "reserve",
+              type: "individuelle",
+              format: "visio",
+              slot: individualSlot,
+              phone: "06 11 22 33 44",
+              intention: "Poursuivre l’accompagnement.",
+              consent: true,
+            },
+            alice,
+          )
+        ).response.status,
+        200,
+      );
+      assert.ok(
+        (await request("", alice, "GET")).data.appointments.some(
+          (item) => item.type === "individuelle",
+        ),
+      );
       const clients = (await request("", admin, "GET")).data.clients;
       const aliceId = clients.find((client) => client.name === "Alice").id;
       const pdf = new FormData();

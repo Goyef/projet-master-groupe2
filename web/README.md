@@ -37,7 +37,7 @@ pnpm dev              # http://localhost:3000
 - **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
 - **Annulation / déplacement** : délai de 24 h annoncé sur le site ; pas de gestion en ligne, la personne prévient Youcef.
 - **Comptes clients** (`/connexion`, onglet « Créer un compte ») : chaque client crée lui-même son compte (nom, e-mail, téléphone, mot de passe de 12 caractères minimum) et est connecté immédiatement. Le gérant ne crée pas de compte ; il voit la liste des clients et peut désactiver ou réactiver un compte.
-- **Espace client** : rendez-vous, documents partagés et réservation des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli.
+- **Espace client** : rendez-vous, documents partagés et réservation des **séances individuelles** (1 h) et des séances de suivi (1 h, à confirmer), réservées aux clients connectés, avec le téléphone du compte prérempli.
 - **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, liste des comptes clients.
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.

@@ -50,7 +50,7 @@ export const appointments = pgTable(
     userId: integer("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
-    type: text("type", { enum: ["vente", "audit", "suivi"] }).notNull(),
+    type: text("type", { enum: ["vente", "audit", "individuelle", "suivi"] }).notNull(),
     format: text("format", { enum: ["visio", "presentiel"] })
       .notNull()
       .default("visio"),

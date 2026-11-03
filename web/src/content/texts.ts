@@ -26,6 +26,7 @@ export const texts = {
   types: {
     vente: "Appel découverte",
     audit: "Audit séminaire",
+    individuelle: "Séance individuelle",
     suivi: "Séance de suivi",
   },
   formats: {
@@ -77,7 +78,7 @@ export const texts = {
         description: "Pendant l’appel, Youcef vous présente l’accompagnement adapté et son devis.",
       },
       {
-        title: "Des séances de suivi",
+        title: "Des séances individuelles",
         description: "Vous créez votre espace client et avancez à votre rythme, en réservant vos séances en ligne.",
       },
     ],
@@ -177,7 +178,7 @@ export const texts = {
     loginTitle: "Le fil de votre accompagnement",
     loginIntro: "Retrouvez vos rendez-vous et les documents partagés avec vous.",
     loginNote:
-      "Pas encore de compte ? Créez-le en quelques secondes pour réserver vos séances de suivi.",
+      "Pas encore de compte ? Créez-le en quelques secondes pour réserver vos séances individuelles et de suivi.",
     loginBookLink: "Réserver un appel sans compte",
     loginTab: "Se connecter",
     registerTab: "Créer un compte",
@@ -253,7 +254,7 @@ export const texts = {
     consentRequired: "Veuillez accepter l’utilisation de vos informations pour ce rendez-vous.",
     formatUnavailable: "Ce format de rendez-vous n’est pas proposé pour le moment.",
     slotTaken: "Ce créneau n’est plus disponible. Choisissez-en un autre.",
-    clientRequired: "Connectez-vous avec un compte client pour réserver un suivi.",
+    clientRequired: "Connectez-vous avec un compte client pour réserver une séance individuelle ou de suivi.",
     slotOverlap: "Aucun créneau ajouté : toute la plage est déjà couverte par des disponibilités.",
     slotInvalid: "Plage invalide : la fin doit être après le début (au moins la durée d’un créneau) et la plage doit durer 14 heures au maximum.",
     slotPast: "Cette plage commence dans le passé : choisissez une heure de début postérieure à maintenant.",
