@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
   createHash,
   randomBytes,
+  randomInt,
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
@@ -28,6 +29,7 @@ export type User = {
   phone: string | null;
   role: "admin" | "client";
   active: boolean;
+  passwordTemporary: boolean;
 };
 
 // Erreur métier : `code` correspond à une clé de traduction (dictionnaire `errors`).
@@ -120,6 +122,7 @@ export async function currentUser(token?: string): Promise<User | null> {
       phone: users.phone,
       role: users.role,
       active: users.active,
+      passwordTemporary: users.passwordTemporary,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -323,7 +326,7 @@ export async function changePassword(
     throw new AppError("wrongPassword", 400);
   await database
     .update(users)
-    .set({ password: hashPassword(next) })
+    .set({ password: hashPassword(next), passwordTemporary: false })
     .where(eq(users.id, user.id));
   await database
     .delete(sessions)
@@ -372,6 +375,7 @@ export async function listClients() {
       email: users.email,
       phone: users.phone,
       active: users.active,
+      passwordTemporary: users.passwordTemporary,
     })
     .from(users)
     .where(eq(users.role, "client"))
@@ -460,24 +464,52 @@ export async function toggleCompleted(id: number) {
   if (!updated.length) throw new AppError("notStartedYet", 409);
 }
 
-// Inscription libre d'un client : le compte est actif tout de suite et la session ouverte.
-export async function registerClient(
-  name: string,
-  email: string,
-  phone: string,
-  password: string,
-) {
+// Mot de passe provisoire lisible à transmettre au client, ex. « K7QM-4XRT-9WHP-2NCF ».
+// Alphabet sans caractères ambigus (0/O, 1/I/L) : 4 groupes de 4, soit environ 80 bits d'entropie.
+const TEMPORARY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function temporaryPassword() {
+  const groups = Array.from({ length: 4 }, () =>
+    Array.from(
+      { length: 4 },
+      () => TEMPORARY_ALPHABET[randomInt(TEMPORARY_ALPHABET.length)],
+    ).join(""),
+  );
+  return groups.join("-");
+}
+
+// Création d'un compte client par le gérant. Le mot de passe provisoire n'est renvoyé
+// qu'une fois, en clair, pour être transmis au client ; seul son hash est conservé.
+export async function createClient(name: string, email: string, phone: string) {
   const database = await db();
+  const password = temporaryPassword();
   try {
-    const [account] = await database
-      .insert(users)
-      .values({ name, email, phone, password: hashPassword(password), role: "client" })
-      .returning({ id: users.id });
-    return createSession(account.id);
+    await database.insert(users).values({
+      name,
+      email,
+      phone,
+      password: hashPassword(password),
+      passwordTemporary: true,
+      role: "client",
+    });
+    return password;
   } catch (error) {
     if (isUniqueViolation(error)) throw new AppError("emailTaken", 409);
     throw error;
   }
+}
+
+// Nouveau mot de passe provisoire (client qui a perdu le sien) : ses sessions sont fermées.
+export async function resetClientPassword(id: number) {
+  const database = await db();
+  const password = temporaryPassword();
+  const updated = await database
+    .update(users)
+    .set({ password: hashPassword(password), passwordTemporary: true })
+    .where(and(eq(users.id, id), eq(users.role, "client")))
+    .returning({ id: users.id });
+  if (!updated.length) throw new AppError("clientNotFound", 404);
+  await database.delete(sessions).where(eq(sessions.userId, id));
+  return password;
 }
 
 export async function toggleClient(id: number) {

@@ -122,46 +122,83 @@ test(
         body: JSON.stringify({ action: "logout" }),
       });
       assert.equal(crossOrigin.status, 403);
-      // Les clients créent eux-mêmes leur compte ; le gérant ne peut plus le faire.
+      // Les comptes clients sont créés par le gérant ; l'inscription libre n'existe plus.
+      const newClient = (name, extra = {}) => ({
+        action: "create-client",
+        name,
+        email: name.toLowerCase() + "@example.test",
+        phone: "06 11 22 33 44",
+        ...extra,
+      });
+      assert.equal((await request(newClient("Visiteur"))).response.status, 403);
+      const signUp = await request({
+        ...newClient("Inscrit"),
+        action: "register",
+        password,
+        consent: true,
+      });
+      // Action supprimée : traitée comme une action gérant, donc refusée à un visiteur.
+      assert.equal(signUp.response.status, 403);
+      assert.equal(signUp.response.headers.get("set-cookie"), null);
+      const adminSignUp = await request(
+        { ...newClient("Inscrit"), action: "register", password, consent: true },
+        admin,
+      );
+      assert.equal(adminSignUp.data.code, "unknownAction");
       assert.equal(
-        (
-          await request(
-            {
-              action: "create-client",
-              name: "Créé par le gérant",
-              email: "gerant-cree@example.test",
-              password,
-            },
-            admin,
-          )
-        ).response.status,
+        (await request({ action: "login", email: "inscrit@example.test", password }))
+          .response.status,
+        401,
+      );
+      assert.equal(
+        (await request(newClient("Alice", { phone: "abc" }), admin)).response.status,
         400,
       );
-      const signUp = (name, extra = {}) =>
-        request({
-          action: "register",
-          name,
-          email: name.toLowerCase() + "@example.test",
-          phone: "06 11 22 33 44",
-          password,
-          consent: true,
-          ...extra,
-        });
-      assert.equal((await signUp("Alice", { consent: false })).response.status, 400);
-      assert.equal(
-        (await signUp("Alice", { password: "trop-court" })).response.status,
-        400,
+      const created = await request(newClient("Alice"), admin);
+      assert.equal(created.response.status, 200);
+      // Mot de passe provisoire renvoyé une seule fois ; aucune session n'est ouverte pour le gérant.
+      assert.match(created.data.password, /^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
+      assert.equal(created.response.headers.get("set-cookie"), null);
+      assert.equal((await request(newClient("Alice"), admin)).response.status, 409);
+      const createdBob = await request(newClient("Bob"), admin);
+      assert.notEqual(createdBob.data.password, created.data.password);
+      const listed = (await request("", admin, "GET")).data.clients;
+      assert.deepEqual(
+        listed.map((client) => [client.email, client.passwordTemporary, "password" in client]),
+        [
+          ["alice@example.test", true, false],
+          ["bob@example.test", true, false],
+        ],
       );
-      const registered = await signUp("Alice");
-      assert.equal(registered.response.status, 200);
-      const aliceSession = registered.response.headers
-        .get("set-cookie")
-        .split(";")[0];
-      const aliceView = (await request("", aliceSession, "GET")).data;
-      assert.equal(aliceView.user.role, "client");
-      assert.equal(aliceView.user.phone, "06 11 22 33 44");
-      assert.equal((await signUp("Alice")).response.status, 409);
-      assert.equal((await signUp("Bob")).response.status, 200);
+      // Le client se connecte avec le mot de passe provisoire, puis le remplace.
+      for (const [email, temporary] of [
+        ["alice@example.test", created.data.password],
+        ["bob@example.test", createdBob.data.password],
+      ]) {
+        const first = await request({ action: "login", email, password: temporary });
+        assert.equal(first.response.status, 200);
+        const cookie = first.response.headers.get("set-cookie").split(";")[0];
+        const view = (await request("", cookie, "GET")).data;
+        assert.deepEqual(
+          [view.user.role, view.user.phone, view.user.passwordTemporary],
+          ["client", "06 11 22 33 44", true],
+        );
+        assert.equal(
+          (
+            await request(
+              { action: "change-password", currentPassword: temporary, password },
+              cookie,
+            )
+          ).response.status,
+          200,
+        );
+        assert.equal((await request("", cookie, "GET")).data.user.passwordTemporary, false);
+      }
+      assert.ok(
+        !(await request("", admin, "GET")).data.clients.some(
+          (client) => client.passwordTemporary,
+        ),
+      );
       const alice = await login("alice@example.test"),
         bob = await login("bob@example.test");
       const starts = Date.now() + 86400000,
@@ -512,12 +549,7 @@ test(
       assert.equal(
         (
           await request(
-            {
-              action: "create-client",
-              name: "Intrus",
-              email: "intrus@example.test",
-              password,
-            },
+            newClient("Intrus"),
             alice,
           )
         ).response.status,
@@ -582,11 +614,38 @@ test(
         ).response.status,
         200,
       );
+      // Mot de passe perdu : le gérant en génère un nouveau, provisoire ; les sessions sont fermées.
+      const bobId = clients.find((client) => client.email === "bob@example.test").id;
       assert.equal(
-        (await request({ action: "logout" }, bob)).response.status,
+        (await request({ action: "reset-client-password", id: bobId }, bob)).response.status,
+        403,
+      );
+      const reset = await request({ action: "reset-client-password", id: bobId }, admin);
+      assert.equal(reset.response.status, 200);
+      assert.match(reset.data.password, /^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
+      assert.equal((await request("", bob, "GET")).data.user, null);
+      assert.equal(
+        (await request({ action: "login", email: "bob@example.test", password: newPassword }))
+          .response.status,
+        401,
+      );
+      const afterReset = await request({
+        action: "login",
+        email: "bob@example.test",
+        password: reset.data.password,
+      });
+      assert.equal(afterReset.response.status, 200);
+      const bobReset = afterReset.response.headers.get("set-cookie").split(";")[0];
+      assert.equal((await request("", bobReset, "GET")).data.user.passwordTemporary, true);
+      assert.equal(
+        (await request({ action: "reset-client-password", id: 999999 }, admin)).response.status,
+        404,
+      );
+      assert.equal(
+        (await request({ action: "logout" }, bobReset)).response.status,
         200,
       );
-      assert.equal((await request("", bob, "GET")).data.user, null);
+      assert.equal((await request("", bobReset, "GET")).data.user, null);
     } finally {
       server.kill();
       await new Promise((resolve) => server.once("exit", resolve));

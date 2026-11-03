@@ -15,6 +15,13 @@
       "when": 1793695565054,
       "tag": "0001_rendez_vous_annulables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793697344514,
+      "tag": "0002_mot_de_passe_provisoire",
+      "breakpoints": true
     }
   ]
 }
