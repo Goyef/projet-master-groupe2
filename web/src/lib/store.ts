@@ -10,6 +10,7 @@ import {
 import { and, asc, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 
 import * as schema from "@/db/schema";
@@ -61,11 +62,25 @@ const globalForDb = globalThis as unknown as {
   synegoReady?: Promise<void>;
 };
 
+function databaseUrl() {
+  const url = process.env.DATABASE_URL;
+  if (url) return url;
+  // En production (Vercel), l'URL doit être définie dans les variables d'environnement du projet :
+  // sans elle, l'erreur apparaît clairement dans les journaux au lieu d'un échec sur localhost.
+  if (process.env.VERCEL)
+    throw new Error(
+      "DATABASE_URL manquante : ajoutez DATABASE_URL et DATABASE_URL_UNPOOLED (Neon) dans Vercel > Settings > Environment Variables, puis redéployez.",
+    );
+  return DEFAULT_URL;
+}
+
 function connection() {
-  globalForDb.synegoDb ??= drizzle(
-    new Pool({ connectionString: process.env.DATABASE_URL || DEFAULT_URL }),
-    { schema },
-  );
+  if (!globalForDb.synegoDb) {
+    const pool = new Pool({ connectionString: databaseUrl() });
+    // Vercel (Fluid compute) : ferme proprement les connexions inactives avant la suspension de la fonction.
+    if (process.env.VERCEL) attachDatabasePool(pool);
+    globalForDb.synegoDb = drizzle(pool, { schema });
+  }
   return globalForDb.synegoDb;
 }
 

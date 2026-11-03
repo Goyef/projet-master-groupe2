@@ -216,6 +216,8 @@ export const texts = {
     phone: "Téléphone",
     email: "Adresse e-mail",
     password: "Mot de passe",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     login: "Accéder à mon espace",
     loggingIn: "Connexion…",
     adminEyebrow: "Espace gérant",
@@ -265,6 +267,8 @@ export const texts = {
     slotsAdded: "{added} créneau(x) ajouté(s).",
     slotsSkipped: "{skipped} ignoré(s) car déjà occupé(s) par une disponibilité.",
     booked: "Réservé",
+    removeSlot: "Retirer le créneau du {day}, {range}",
+    slotCount: "{count} créneau(x)",
     noSlots: "Aucune disponibilité à venir.",
     client: {
       intro: "Retrouvez vos rendez-vous, réservez vos séances et gérez votre compte.",
@@ -421,36 +425,104 @@ export const texts = {
     ticketClosed: "Cette demande est clôturée : rouvrez-la avant d’y répondre.",
   },
   legal: {
+    updatedAt: "Dernière mise à jour : 3 novembre 2026",
     noticeTitle: "Mentions légales",
-    noticeIntro: "Version de travail : ces informations doivent être complétées et validées avant toute ouverture au public.",
+    noticeIntro:
+      "Version de travail : les informations marquées « à compléter » doivent être fournies par Youcef avant l’ouverture du site au public.",
     noticeSections: [
       {
-        title: "Éditeur et publication",
-        text: "Synégo — nom ou raison sociale, statut, adresse professionnelle, coordonnées, immatriculation et responsable de publication : à fournir par Youcef.",
+        title: "Éditeur du site",
+        text: "Le site Synégo est édité par Youcef, coach-thérapeute.",
+        items: [
+          "Nom ou raison sociale, statut juridique : à compléter",
+          "Adresse professionnelle : à compléter",
+          "SIRET / immatriculation : à compléter",
+          "Contact : à compléter (e-mail et téléphone professionnels)",
+          "Responsable de la publication : Youcef",
+        ],
       },
       {
-        title: "Hébergement",
-        text: "Nom, adresse et coordonnées de l’hébergeur du site et de la base de données : à compléter selon l’hébergement retenu.",
+        title: "Hébergement du site",
+        text: "Le site et ses fonctions serveur sont hébergés par Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis — vercel.com.",
       },
       {
-        title: "Contenus",
-        text: "Le logo et la palette sont fournis par le client. Les textes sont des propositions à valider. Les droits d’utilisation des contenus définitifs doivent être vérifiés avant publication.",
+        title: "Hébergement des données",
+        text: "La base de données du site (comptes, rendez-vous, documents et demandes de support) est hébergée par Neon, Inc. (groupe Databricks) — neon.com — sur des serveurs situés dans l’Union européenne (Francfort, Allemagne). Adresse postale de Neon : à compléter d’après neon.com.",
+      },
+      {
+        title: "Propriété intellectuelle",
+        text: "Le logo, la palette graphique et les textes du site appartiennent à leur auteur. Toute reproduction sans autorisation est interdite. Les documents partagés dans l’espace client sont réservés à un usage personnel.",
+      },
+      {
+        title: "Données personnelles",
+        text: "Le traitement de vos données (réservation, espace client, mots de passe) est détaillé dans la page Confidentialité.",
       },
     ],
-    privacyTitle: "Confidentialité",
-    privacyIntro: "Version de travail à compléter avec Youcef avant publication. Utilisez uniquement des données de test pour la démonstration.",
+    privacyTitle: "Confidentialité et données personnelles",
+    privacyIntro:
+      "Cette page explique quelles données le site collecte, où elles sont stockées et comment exercer vos droits (RGPD). Version de travail : les éléments « à compléter » doivent être validés par Youcef avant l’ouverture au public.",
     privacySections: [
       {
-        title: "Informations collectées",
-        text: "La réservation enregistre vos nom, prénom, e-mail, téléphone, le créneau, le format choisi et quelques mots sur ce qui vous amène. Ces informations servent uniquement à organiser le rendez-vous et à vous contacter.",
+        title: "Responsable du traitement",
+        text: "Youcef (Synégo) est responsable du traitement de vos données. Contact pour toute question ou demande : à compléter (adresse e-mail dédiée).",
+      },
+      {
+        title: "Données collectées",
+        text: "Le site collecte uniquement les données nécessaires à ses services :",
+        items: [
+          "Réservation : prénom, nom, adresse e-mail, téléphone, créneau, format et quelques mots sur ce qui vous amène.",
+          "Espace client : nom, adresse e-mail, téléphone et mot de passe, vos rendez-vous (y compris annulés), les documents partagés avec vous et vos demandes de support.",
+          "Connexion : un cookie de session et, en cas d’échecs répétés, votre adresse e-mail avec le nombre de tentatives (pendant 15 minutes).",
+          "Données techniques : adresse IP et informations de navigation enregistrées dans les journaux de l’hébergeur Vercel.",
+        ],
+      },
+      {
+        title: "Mots de passe et adresses e-mail",
+        text: "Votre adresse e-mail et votre mot de passe sont enregistrés dans la base de données hébergée par Neon. Le mot de passe n’est jamais conservé en clair : seule une empreinte irréversible (algorithme scrypt avec un sel aléatoire) est stockée, que personne, y compris Youcef, ne peut relire. Les jetons de session sont eux aussi stockés sous forme d’empreinte. Si Youcef vous a transmis un mot de passe provisoire, remplacez-le dès votre première connexion.",
       },
       {
         title: "Ce qui vous amène",
-        text: "Le champ « Ce qui vous amène » peut contenir des informations personnelles sensibles. Il n’est visible que par Youcef et n’est jamais transmis à des tiers. Ne partagez que ce que vous souhaitez.",
+        text: "Le champ « Ce qui vous amène » peut contenir des informations personnelles sensibles (bien-être, santé). Il n’est visible que par Youcef et n’est jamais vendu ni transmis à des fins commerciales. Ne partagez que ce que vous souhaitez.",
       },
       {
-        title: "Espace client",
-        text: "Vous pouvez créer un espace client, ou Youcef peut vous en ouvrir un : il conserve vos nom, e-mail et téléphone, vos rendez-vous (y compris annulés), les documents partagés et vos demandes de support, visibles par Youcef seul. Vous pouvez y modifier votre nom, votre téléphone et votre mot de passe ; si Youcef vous a transmis un mot de passe provisoire, remplacez-le dès votre première connexion. Les mots de passe sont hachés. Le cookie de session nécessaire à la connexion expire après huit heures.",
+        title: "Finalités et bases légales",
+        text: "Vos données servent uniquement à :",
+        items: [
+          "organiser vos rendez-vous et vous recontacter (mesures précontractuelles et exécution du contrat) ;",
+          "gérer votre espace client, vos documents et vos demandes de support (exécution du contrat) ;",
+          "sécuriser l’accès au site, notamment limiter les tentatives de connexion (intérêt légitime) ;",
+          "traiter les informations de « Ce qui vous amène » (votre consentement, donné en cochant la case du formulaire).",
+        ],
+      },
+      {
+        title: "Hébergement et sous-traitants",
+        text: "Vos données ne sont ni vendues ni utilisées à des fins publicitaires. Seuls deux prestataires techniques y accèdent, pour le compte de Youcef :",
+        items: [
+          "Vercel Inc. (États-Unis) : héberge et exécute le site ; vos données transitent par ses serveurs à chaque requête.",
+          "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
+        ],
+      },
+      {
+        title: "Transferts hors de l’Union européenne",
+        text: "Vercel et Neon sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
+      },
+      {
+        title: "Cookies",
+        text: "Le site n’utilise qu’un cookie strictement nécessaire : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures). Il ne nécessite pas votre consentement. Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
+      },
+      {
+        title: "Durées de conservation",
+        text: "Propositions à valider par Youcef :",
+        items: [
+          "Demande de rendez-vous sans suite : 3 ans après le dernier contact.",
+          "Compte client et rendez-vous : pendant la durée de l’accompagnement, puis 3 ans.",
+          "Session de connexion : 8 heures ; tentatives de connexion : 15 minutes.",
+          "Journaux techniques de l’hébergeur : selon la politique de Vercel.",
+        ],
+      },
+      {
+        title: "Sécurité",
+        text: "Les échanges avec le site sont chiffrés (HTTPS) et la connexion entre le site et la base de données est chiffrée (TLS). L’accès aux données est réservé à Youcef ; chaque client ne voit que ses propres informations.",
       },
       {
         title: "Langue du site",
@@ -459,6 +531,8 @@ export const texts = {
       {
         title: "À compléter",
         text: "L’identité du responsable de traitement, le contact pour exercer vos droits, les durées de conservation et l’hébergeur doivent être définis avec Youcef.",
+        title: "Vos droits",
+        text: "Vous pouvez accéder à vos données, les rectifier ou les supprimer, vous opposer à leur traitement, en demander la limitation ou la portabilité, retirer votre consentement à tout moment et définir des directives sur leur sort après votre décès. Votre nom et votre téléphone se modifient directement dans l’espace client ; pour toute autre demande, écrivez au contact indiqué ci-dessus (réponse sous un mois). En cas de désaccord, vous pouvez saisir la CNIL (cnil.fr).",
       },
     ],
   },

@@ -11,5 +11,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LegalPage() {
   const dict = await getTexts()
   const { legal } = dict
-  return <LegalArticle title={legal.noticeTitle} intro={legal.noticeIntro} sections={legal.noticeSections} />
+  return (
+    <LegalArticle
+      title={legal.noticeTitle}
+      intro={legal.noticeIntro}
+      updatedAt={legal.updatedAt}
+      sections={legal.noticeSections}
+    />
+  )
 }
