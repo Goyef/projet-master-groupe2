@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createServer } from "node:http";
 import pg from "pg";
 
 // Base Postgres d'administration : celle de docker-compose.yml par défaut.
@@ -23,6 +24,67 @@ test(
     const password = randomBytes(20).toString("hex");
     const port = Number(process.env.TEST_PORT) || 43127,
       origin = `http://127.0.0.1:${port}`;
+
+    // Faux Google (jeton OAuth et API Agenda) : vérifie la signature du compte de service
+    // et garde les événements en mémoire, pour tester la synchronisation sans vraies clés.
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: "pkcs8", format: "pem" },
+      publicKeyEncoding: { type: "spki", format: "pem" },
+    });
+    const calendarId = "agenda-test@group.calendar.google.com";
+    const googleEvents = new Map();
+    const googleCalls = [];
+    const google = createServer(async (req, res) => {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const url = new URL(req.url, "http://127.0.0.1");
+      googleCalls.push({ method: req.method, path: decodeURIComponent(url.pathname) });
+      const reply = (status, data) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(data === undefined ? "" : JSON.stringify(data));
+      };
+      if (url.pathname === "/token") {
+        const [header, claims, signature] = new URLSearchParams(body).get("assertion").split(".");
+        const valid = createVerify("RSA-SHA256")
+          .update(`${header}.${claims}`)
+          .verify(publicKey, Buffer.from(signature, "base64url"));
+        return valid
+          ? reply(200, { access_token: "jeton-test", expires_in: 3600 })
+          : reply(401, { error: "invalid_grant" });
+      }
+      if (req.headers.authorization !== "Bearer jeton-test") return reply(401);
+      const match = decodeURIComponent(url.pathname).match(
+        /^\/calendar\/v3\/calendars\/([^/]+)\/events(?:\/([^/]+))?$/,
+      );
+      if (!match || match[1] !== calendarId) return reply(404);
+      const eventId = match[2];
+      if (req.method === "POST") {
+        const event = JSON.parse(body);
+        googleEvents.set(event.id, event);
+        return reply(200, event);
+      }
+      if (req.method === "PUT") {
+        if (!googleEvents.has(eventId)) return reply(404);
+        googleEvents.set(eventId, JSON.parse(body));
+        return reply(200, JSON.parse(body));
+      }
+      if (req.method === "DELETE") return reply(googleEvents.delete(eventId) ? 204 : 410);
+      return reply(405);
+    });
+    await new Promise((resolve) => google.listen(0, "127.0.0.1", resolve));
+    const googleUrl = `http://127.0.0.1:${google.address().port}`;
+    const googleEventId = (id) => `rdv${String(id).padStart(6, "0")}`;
+    // La synchronisation a lieu après la réponse : on attend qu'elle arrive.
+    async function eventually(check, label) {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        if (check()) return;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      assert.fail(label + "\n" + logs);
+    }
+    const feedToken = randomBytes(24).toString("hex");
+
     const server = spawn(
       process.execPath,
       [
@@ -42,6 +104,14 @@ test(
           DATABASE_URL_UNPOOLED: databaseUrl.toString(),
           ADMIN_EMAIL: "gerant@example.test",
           ADMIN_PASSWORD: password,
+          // Agenda : lien d'abonnement et synchronisation vers le faux Google.
+          CALENDAR_FEED_TOKEN: feedToken,
+          GOOGLE_CALENDAR_ID: calendarId,
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: "synego@projet-test.iam.gserviceaccount.com",
+          GOOGLE_PRIVATE_KEY: privateKey,
+          GOOGLE_CALENDAR_API_URL: googleUrl + "/calendar/v3",
+          GOOGLE_TOKEN_URL: googleUrl + "/token",
+          SITE_URL: "https://synego.example.test",
         },
         stdio: "pipe",
       },
@@ -251,6 +321,15 @@ test(
       );
       const booked = await request({ ...prospect, slot: prospectSlot });
       assert.equal(booked.response.status, 200);
+      // Le rendez-vous apparaît dans le Google Agenda du gérant, sans l'intention.
+      const prospectEvent = googleEventId(booked.data.reference);
+      await eventually(() => googleEvents.has(prospectEvent), "événement Google non créé");
+      const googleEvent = googleEvents.get(prospectEvent);
+      assert.equal(googleEvent.summary, "Appel découverte · Camille Martin");
+      assert.equal(googleEvent.start.dateTime, new Date(booked.data.starts).toISOString());
+      assert.ok(googleEvent.description.includes(prospect.phone));
+      assert.ok(googleEvent.description.includes("https://synego.example.test/connexion"));
+      assert.ok(!googleEvent.description.includes(prospect.intention));
       const adminView = (await request("", admin, "GET")).data;
       assert.equal(adminView.appointments[0].phone, prospect.phone);
       assert.equal(adminView.appointments[0].intention, prospect.intention);
@@ -429,6 +508,13 @@ test(
       );
       assert.equal(moved.response.status, 200);
       assert.equal(moved.data.starts, otherSlot.starts);
+      // Le déplacement est reporté dans Google Agenda.
+      const aliceEvent = googleEventId(aliceAppointment.id);
+      await eventually(
+        () =>
+          googleEvents.get(aliceEvent)?.start.dateTime === new Date(otherSlot.starts).toISOString(),
+        "déplacement non reporté dans Google",
+      );
       // L'ancien créneau redevient réservable.
       assert.ok(
         (await request("?action=slots&type=suivi", alice, "GET")).data.slots.some(
@@ -439,6 +525,27 @@ test(
         (await request({ action: "cancel", id: aliceAppointment.id }, alice)).response.status,
         200,
       );
+      // L'annulation supprime l'événement Google.
+      await eventually(
+        () =>
+          !googleEvents.has(aliceEvent) &&
+          googleCalls.some((call) => call.method === "DELETE" && call.path.endsWith(aliceEvent)),
+        "annulation non reportée dans Google",
+      );
+      // Lien d'abonnement : secret, rendez-vous confirmés uniquement, sans l'intention.
+      assert.equal((await fetch(origin + "/api/agenda/" + "x".repeat(48))).status, 404);
+      const feed = await fetch(origin + "/api/agenda/" + feedToken);
+      assert.equal(feed.status, 200);
+      assert.match(feed.headers.get("content-type"), /^text\/calendar/);
+      const ics = await feed.text();
+      assert.ok(ics.startsWith("BEGIN:VCALENDAR\r\n"));
+      assert.ok(ics.includes(`UID:rendez-vous-${booked.data.reference}@synego`));
+      assert.ok(ics.includes("Camille Martin"));
+      assert.ok(!ics.includes(prospect.intention));
+      assert.ok(!ics.includes(`UID:rendez-vous-${aliceAppointment.id}@synego`));
+      const agenda = (await request("", admin, "GET")).data.agenda;
+      assert.deepEqual(agenda, { feedPath: "/api/agenda/" + feedToken, googleSync: true });
+      assert.equal((await request("", alice, "GET")).data.agenda, undefined);
       const cancelledTwice = await request({ action: "cancel", id: aliceAppointment.id }, alice);
       assert.equal(cancelledTwice.response.status, 409);
       assert.equal(cancelledTwice.data.code, "alreadyCancelled");
@@ -814,6 +921,7 @@ test(
       );
       assert.equal((await request("", bobReset, "GET")).data.user, null);
     } finally {
+      google.close();
       server.kill();
       await new Promise((resolve) => server.once("exit", resolve));
       await maintenance.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
