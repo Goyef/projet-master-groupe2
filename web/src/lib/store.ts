@@ -69,13 +69,27 @@ function connection() {
   return globalForDb.synegoDb;
 }
 
+// Migrations sur la connexion directe (Neon : DATABASE_URL_UNPOOLED, sans PgBouncer),
+// l'application utilisant la connexion poolée (DATABASE_URL). En local, une seule URL suffit.
+async function runMigrations() {
+  const direct = process.env.DATABASE_URL_UNPOOLED;
+  if (!direct) {
+    await migrate(connection(), { migrationsFolder: join(process.cwd(), "drizzle") });
+    return;
+  }
+  const pool = new Pool({ connectionString: direct, max: 1 });
+  try {
+    await migrate(drizzle(pool), { migrationsFolder: join(process.cwd(), "drizzle") });
+  } finally {
+    await pool.end();
+  }
+}
+
 // Applique les migrations et crée le compte gérant au premier accès.
 export async function db() {
   const database = connection();
   globalForDb.synegoReady ??= (async () => {
-    await migrate(database, {
-      migrationsFolder: join(process.cwd(), "drizzle"),
-    });
+    await runMigrations();
     const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD;
     if (email && password && password.length >= 12) {
