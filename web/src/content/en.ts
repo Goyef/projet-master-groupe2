@@ -66,6 +66,7 @@ export const english: Texts = {
       { title: "Follow-up sessions", description: "Create your client account, or let Youcef set it up for you, and book your sessions online at your own pace." },
     ],
     aboutEyebrow: "About me", aboutTitle: "Youcef, coach and therapist",
+    aboutPhotoAlt: "Portrait of Youcef in a library",
     aboutText: "I support people who feel an inner emptiness they cannot always put into words. My role is to help you recognise it and reconnect with what matters to you. (Introduction, background and qualifications to be completed by Youcef.)",
     seminarsEyebrow: "For businesses", seminarsTitle: "Seminars for your team",
     seminarsText: "Synégo also works with businesses on team cohesion, communication, conflict management and self-awareness.",
