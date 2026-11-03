@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "./password-input"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
@@ -38,6 +39,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
   if (!data?.user) return null
   const user = data.user
   const text = dict.client
+  const passwordLabels = { show: dict.showPassword, hide: dict.hidePassword }
 
   const all = data.appointments ?? []
   const lists: Record<Filter, Appointment[]> = {
@@ -342,14 +344,14 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                     <FieldLabel htmlFor="current-password" data-invalid={isInvalid("password", "currentPassword")}>
                       {user.passwordTemporary ? text.currentPasswordTemporary : text.currentPassword}
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="current-password"
                       aria-invalid={isInvalid("password", "currentPassword")}
                       name="currentPassword"
-                      type="password"
                       autoComplete="current-password"
                       required
                       maxLength={256}
+                      labels={passwordLabels}
                     />
                     {errorFor("password", "currentPassword")}
                   </Field>
@@ -357,15 +359,15 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                     <FieldLabel htmlFor="new-password" data-invalid={isInvalid("password", "password")}>
                       {text.newPassword}
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="new-password"
                       aria-invalid={isInvalid("password", "password")}
                       name="password"
-                      type="password"
                       autoComplete="new-password"
                       required
                       minLength={12}
                       maxLength={256}
+                      labels={passwordLabels}
                     />
                     {errorFor("password", "password")}
                   </Field>

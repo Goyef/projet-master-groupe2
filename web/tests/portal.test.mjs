@@ -38,6 +38,8 @@ test(
           ...process.env,
           NEXT_TELEMETRY_DISABLED: "1",
           DATABASE_URL: databaseUrl.toString(),
+          // Écrase la connexion directe Neon éventuellement présente dans .env.local.
+          DATABASE_URL_UNPOOLED: databaseUrl.toString(),
           ADMIN_EMAIL: "gerant@example.test",
           ADMIN_PASSWORD: password,
         },

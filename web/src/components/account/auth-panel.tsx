@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "./password-input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
 
@@ -15,6 +16,7 @@ import type { Portal } from "./use-portal"
 
 // Connexion et création de compte (visiteur non connecté).
 export function AuthPanel({ dict, portal }: { dict: Texts["portal"]; portal: Portal }) {
+  const passwordLabels = { show: dict.showPassword, hide: dict.hidePassword }
   const { submit, isInvalid, errorFor, feedbackFor, busy, setMessage } = portal
 
   return (
@@ -60,14 +62,14 @@ export function AuthPanel({ dict, portal }: { dict: Texts["portal"]; portal: Por
                       <FieldLabel htmlFor="login-password" data-invalid={isInvalid("login", "password")}>
                         {dict.password}
                       </FieldLabel>
-                      <Input
+                      <PasswordInput
                         id="login-password"
                         aria-invalid={isInvalid("login", "password")}
                         name="password"
-                        type="password"
                         autoComplete="current-password"
                         required
                         maxLength={256}
+                        labels={passwordLabels}
                       />
                       {errorFor("login", "password")}
                     </Field>
@@ -144,15 +146,15 @@ export function AuthPanel({ dict, portal }: { dict: Texts["portal"]; portal: Por
                       <FieldLabel htmlFor="register-password" data-invalid={isInvalid("register", "password")}>
                         {dict.registerPassword}
                       </FieldLabel>
-                      <Input
+                      <PasswordInput
                         id="register-password"
                         aria-invalid={isInvalid("register", "password")}
                         name="password"
-                        type="password"
                         autoComplete="new-password"
                         required
                         minLength={12}
                         maxLength={256}
+                        labels={passwordLabels}
                       />
                       {errorFor("register", "password")}
                     </Field>

@@ -7,5 +7,12 @@ export const metadata: Metadata = { title: dict.legal.noticeTitle }
 
 export default function LegalPage() {
   const { legal } = dict
-  return <LegalArticle title={legal.noticeTitle} intro={legal.noticeIntro} sections={legal.noticeSections} />
+  return (
+    <LegalArticle
+      title={legal.noticeTitle}
+      intro={legal.noticeIntro}
+      updatedAt={legal.updatedAt}
+      sections={legal.noticeSections}
+    />
+  )
 }

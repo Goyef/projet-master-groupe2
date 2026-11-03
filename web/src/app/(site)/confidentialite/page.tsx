@@ -7,5 +7,12 @@ export const metadata: Metadata = { title: dict.legal.privacyTitle }
 
 export default function PrivacyPage() {
   const { legal } = dict
-  return <LegalArticle title={legal.privacyTitle} intro={legal.privacyIntro} sections={legal.privacySections} />
+  return (
+    <LegalArticle
+      title={legal.privacyTitle}
+      intro={legal.privacyIntro}
+      updatedAt={legal.updatedAt}
+      sections={legal.privacySections}
+    />
+  )
 }
