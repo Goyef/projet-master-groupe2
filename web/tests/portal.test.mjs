@@ -218,6 +218,19 @@ test(
         [registeredView.role, registeredView.phone, registeredView.passwordTemporary],
         ["client", "06 11 22 33 44", false],
       );
+      // Bouton d'accès de l'en-tête : « Se connecter » pour un visiteur, sinon l'espace du compte.
+      const headerLabel = async (cookie = "") => {
+        const html = await (
+          await fetch(origin + "/", {
+            headers: { "Accept-Language": "fr", ...(cookie ? { Cookie: cookie } : {}) },
+          })
+        ).text();
+        return html.match(/data-slot="button"[^>]*href="\/connexion">([^<]+)</)?.[1];
+      };
+      assert.equal(await headerLabel(), "Se connecter");
+      assert.equal(await headerLabel("session=jeton-inconnu"), "Se connecter");
+      assert.equal(await headerLabel(registeredSession), "Espace client");
+      assert.equal(await headerLabel(admin), "Espace gérant");
       const duplicate = await signUp();
       assert.equal(duplicate.response.status, 409);
       assert.equal(duplicate.data.field, "email");

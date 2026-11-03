@@ -18,6 +18,9 @@ export const texts = {
     seminars: "Séminaires",
     booking: "Rendez-vous",
     clientArea: "Espace client",
+    // Bouton d'accès de l'en-tête : « Se connecter » tant que le visiteur n'est pas connecté.
+    login: "Se connecter",
+    adminArea: "Espace gérant",
     bookCta: "Réserver un appel",
     menu: "Menu",
     openMenu: "Ouvrir le menu",

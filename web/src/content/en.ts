@@ -13,7 +13,7 @@ export const english: Texts = {
   meta: { description: "Synégo — coaching and therapy to understand emotional emptiness and rediscover your sense of direction." },
   nav: {
     home: "Home", coaching: "Our approach", seminars: "Seminars", booking: "Appointments",
-    clientArea: "Client area", bookCta: "Book a call", menu: "Menu", openMenu: "Open menu",
+    clientArea: "Client area", login: "Sign in", adminArea: "Owner area", bookCta: "Book a call", menu: "Menu", openMenu: "Open menu",
     mainLabel: "Main navigation", mobileLabel: "Mobile navigation",
   },
   theme: {
