@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { CircleCheckIcon, CircleAlertIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -21,14 +21,14 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { siteConfig } from "@/config/site"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime, TIME_ZONE } from "@/lib/format"
+import { format, formatDateTime } from "@/lib/format"
+
+import { SlotPicker, type Slot } from "./slot-picker"
 
 type AppointmentType = keyof Texts["types"]
-type Slot = { id: number; starts: number }
 
 export type BookingFormProps = {
   dict: Pick<Texts, "types" | "formats" | "minutes" | "errors"> & { form: Texts["booking"]["form"] }
@@ -78,21 +78,6 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
       })
     return () => controller.abort()
   }, [type, requestKey, dict.errors.network])
-
-  // Créneaux regroupés par jour (heure de Paris) pour une lecture plus simple.
-  const days = useMemo(() => {
-    const groups = new Map<string, Slot[]>()
-    for (const item of slots) {
-      const day = new Date(item.starts).toLocaleDateString("fr-FR", {
-        timeZone: TIME_ZONE,
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      })
-      groups.set(day, [...(groups.get(day) ?? []), item])
-    }
-    return [...groups]
-  }, [slots])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -196,50 +181,17 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
 
             <FieldSet>
               <FieldLegend variant="label">{dict.form.slotLegend}</FieldLegend>
-              {loading ? (
-                <div className="grid grid-cols-3 gap-2" aria-label={dict.form.loading}>
-                  {Array.from({ length: 6 }, (_, index) => (
-                    <Skeleton key={index} className="h-9" />
-                  ))}
-                </div>
-              ) : !slots.length ? (
-                <FieldDescription>{dict.form.noSlots}</FieldDescription>
-              ) : (
-                <RadioGroup
-                  value={slot}
-                  onValueChange={(value) => {
-                    setSlot(String(value))
-                    setResult(null)
-                  }}
-                  className="max-h-72 gap-4 overflow-y-auto pr-1"
-                >
-                  {days.map(([day, items]) => (
-                    <div key={day} className="space-y-2">
-                      <p className="text-sm font-medium first-letter:uppercase">{day}</p>
-                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                        {items.map((item) => (
-                          <FieldLabel
-                            key={item.id}
-                            htmlFor={`slot-${item.id}`}
-                            className="has-data-checked:bg-primary has-data-checked:text-primary-foreground"
-                          >
-                            <Field orientation="horizontal" className="justify-center">
-                              <RadioGroupItem value={String(item.id)} id={`slot-${item.id}`} className="sr-only" />
-                              <FieldTitle>
-                                {new Date(item.starts).toLocaleTimeString("fr-FR", {
-                                  timeZone: TIME_ZONE,
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </FieldTitle>
-                            </Field>
-                          </FieldLabel>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
+              <SlotPicker
+                slots={slots}
+                value={slot}
+                onChange={(value) => {
+                  setSlot(value)
+                  setResult(null)
+                }}
+                loading={loading}
+                loadingLabel={dict.form.loading}
+                emptyLabel={dict.form.noSlots}
+              />
               {errorFor("slot")}
             </FieldSet>
 

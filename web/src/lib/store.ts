@@ -205,6 +205,9 @@ export async function reserve(input: BookingInput) {
 
 // --- Espace connecté -------------------------------------------------------
 
+// Délai minimal pour annuler ou déplacer un rendez-vous depuis l'espace client.
+export const CHANGE_NOTICE_MS = 24 * 3600_000;
+
 export async function listAppointments(user: User) {
   const database = await db();
   const rows = await database
@@ -217,6 +220,7 @@ export async function listAppointments(user: User) {
     id: row.id,
     type: row.type,
     format: row.format,
+    status: row.status,
     name: `${row.firstName} ${row.lastName}`.trim(),
     email: row.email,
     phone: user.role === "admin" ? row.phone : undefined,
@@ -224,7 +228,111 @@ export async function listAppointments(user: User) {
     completed: row.completed,
     past: row.starts.getTime() < now,
     starts: row.starts.getTime(),
+    ends: row.ends.getTime(),
+    // Le client peut encore annuler ou déplacer ce rendez-vous lui-même.
+    changeable:
+      user.role === "client" &&
+      row.status === "confirmed" &&
+      row.starts.getTime() - now > CHANGE_NOTICE_MS,
   }));
+}
+
+// Rendez-vous du client encore modifiable ; sinon, l'erreur explique pourquoi.
+async function changeableAppointment(user: User, id: number) {
+  const database = await db();
+  const [row] = await database
+    .select()
+    .from(appointments)
+    .where(and(eq(appointments.id, id), eq(appointments.userId, user.id)));
+  if (!row) throw new AppError("appointmentNotFound", 404);
+  if (row.status === "cancelled") throw new AppError("alreadyCancelled", 409);
+  if (row.starts.getTime() - Date.now() <= CHANGE_NOTICE_MS)
+    throw new AppError("tooLateToChange", 409);
+  return row;
+}
+
+// Les conditions sont répétées dans la requête pour rester sûres face à deux demandes simultanées.
+const stillChangeable = (user: User, id: number) =>
+  and(
+    eq(appointments.id, id),
+    eq(appointments.userId, user.id),
+    eq(appointments.status, "confirmed"),
+    gt(appointments.starts, new Date(Date.now() + CHANGE_NOTICE_MS)),
+  );
+
+// Annule le rendez-vous et libère son créneau pour une autre réservation.
+export async function cancelAppointment(user: User, id: number) {
+  await changeableAppointment(user, id);
+  const database = await db();
+  const updated = await database
+    .update(appointments)
+    .set({ status: "cancelled", slotId: null, cancelledAt: new Date() })
+    .where(stillChangeable(user, id))
+    .returning({ id: appointments.id });
+  if (!updated.length) throw new AppError("tooLateToChange", 409);
+}
+
+// Déplace le rendez-vous vers un autre créneau libre ; l'ancien créneau redevient disponible.
+export async function rescheduleAppointment(user: User, id: number, slotId: number) {
+  const current = await changeableAppointment(user, id);
+  const database = await db();
+  const minutes = types[current.type].minutes;
+  const [slot] = await database
+    .select()
+    .from(slots)
+    .where(and(eq(slots.id, slotId), freeSlot(minutes)));
+  if (!slot) throw new AppError("slotTaken", 409);
+  if (slot.starts.getTime() - Date.now() <= CHANGE_NOTICE_MS)
+    throw new AppError("slotTooSoon", 409);
+  try {
+    const [updated] = await database
+      .update(appointments)
+      .set({
+        slotId: slot.id,
+        starts: slot.starts,
+        ends: new Date(slot.starts.getTime() + minutes * 60_000),
+      })
+      .where(stillChangeable(user, id))
+      .returning({ starts: appointments.starts });
+    if (!updated) throw new AppError("tooLateToChange", 409);
+    return updated;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new AppError("slotTaken", 409);
+    throw error;
+  }
+}
+
+export async function updateProfile(user: User, name: string, phone: string) {
+  const database = await db();
+  await database.update(users).set({ name, phone }).where(eq(users.id, user.id));
+}
+
+// Change le mot de passe et ferme les autres sessions ouvertes du compte.
+export async function changePassword(
+  user: User,
+  token: string,
+  current: string,
+  next: string,
+) {
+  const database = await db();
+  const [account] = await database
+    .select({ password: users.password })
+    .from(users)
+    .where(eq(users.id, user.id));
+  if (!account || !verifyPassword(current, account.password))
+    throw new AppError("wrongPassword", 400);
+  await database
+    .update(users)
+    .set({ password: hashPassword(next) })
+    .where(eq(users.id, user.id));
+  await database
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.userId, user.id),
+        sql`${sessions.token} <> ${tokenHash(token)}`,
+      ),
+    );
 }
 
 export async function listDocuments(user: User) {
@@ -344,6 +452,7 @@ export async function toggleCompleted(id: number) {
     .where(
       and(
         eq(appointments.id, id),
+        eq(appointments.status, "confirmed"),
         lt(appointments.starts, new Date()),
       ),
     )
