@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
+import { ClientAccounts } from "./client-accounts"
 import type { Appointment, Portal } from "./use-portal"
 
 const ALL_CLIENTS = "all"
@@ -325,42 +326,7 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">{dict.clientsTitle}</CardTitle>
-          <CardDescription>{dict.clientsIntro}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {feedbackFor("clients")}
-          {!data.clients?.length && <p className="text-muted-foreground">{dict.noClients}</p>}
-          <ul className="divide-y">
-            {data.clients?.map((client) => (
-              <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <span>
-                  {client.name}
-                  <span className="block text-sm text-muted-foreground">
-                    {client.email}
-                    {client.phone && ` · ${client.phone}`}
-                  </span>
-                </span>
-                <div className="flex items-center gap-3">
-                  <Badge variant={client.active ? "default" : "outline"}>
-                    {client.active ? dict.active : dict.disabled}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => act({ action: "toggle-client", id: client.id }, { scope: "clients" })}
-                  >
-                    {client.active ? dict.disable : dict.enable}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <ClientAccounts dict={dict} portal={portal} />
     </div>
   )
 }
