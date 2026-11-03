@@ -13,7 +13,7 @@ export function Logo({ href, className }: { href: string; className?: string }) 
         width={40}
         height={40}
         priority
-        className="size-9"
+        className="size-9 dark:rounded-full dark:bg-brand-ivory"
       />
       <span className="font-heading text-lg font-semibold">{siteConfig.name}</span>
     </Link>
