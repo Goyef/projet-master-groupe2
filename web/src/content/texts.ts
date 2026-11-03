@@ -78,7 +78,7 @@ export const texts = {
       },
       {
         title: "Des séances de suivi",
-        description: "Youcef vous ouvre votre espace client : vous avancez à votre rythme, en réservant vos séances en ligne.",
+        description: "Vous créez votre espace client (ou Youcef vous l’ouvre) et avancez à votre rythme, en réservant vos séances en ligne.",
       },
     ],
     aboutEyebrow: "Qui suis-je",
@@ -177,8 +177,18 @@ export const texts = {
     loginTitle: "Le fil de votre accompagnement",
     loginIntro: "Retrouvez vos rendez-vous et les documents partagés avec vous.",
     loginNote:
-      "Pas encore de compte ? Youcef crée votre espace client après votre premier échange et vous transmet un mot de passe provisoire, à remplacer dès la première connexion.",
+      "Pas encore de compte ? Créez-le en quelques secondes pour réserver vos séances de suivi. Si Youcef vous a déjà ouvert un espace, connectez-vous avec le mot de passe provisoire qu’il vous a transmis.",
     loginBookLink: "Réserver un appel sans compte",
+    loginTab: "Se connecter",
+    registerTab: "Créer un compte",
+    registerTitle: "Créer mon compte",
+    registerName: "Prénom et nom",
+    registerPhone: "Téléphone",
+    registerPassword: "Mot de passe · 12 caractères minimum",
+    registerConsent: "J’accepte que ces informations soient utilisées pour gérer mon compte et mes rendez-vous, selon la",
+    registerConsentLink: "politique de confidentialité",
+    register: "Créer mon compte",
+    registering: "Création…",
     loginTitleForm: "Se connecter",
     fullName: "Prénom et nom",
     phone: "Téléphone",
@@ -326,7 +336,7 @@ export const texts = {
     },
     clientsTitle: "Comptes clients",
     clientsIntro:
-      "Vous créez les comptes de vos clients. Un mot de passe provisoire est généré : transmettez-le au client, qui le remplace depuis « Mon profil ». Vous pouvez désactiver un compte à tout moment.",
+      "Les clients peuvent créer eux-mêmes leur compte depuis la page de connexion. Vous pouvez aussi en créer un : un mot de passe provisoire est généré, à transmettre au client, qui le remplace depuis « Mon profil ». Vous pouvez désactiver un compte à tout moment.",
     noClients: "Aucun compte client pour le moment.",
     createClientTitle: "Créer un compte client",
     createClient: "Créer le compte",
@@ -418,7 +428,7 @@ export const texts = {
       },
       {
         title: "Espace client",
-        text: "Youcef peut vous ouvrir un espace client : il conserve vos nom, e-mail et téléphone, vos rendez-vous (y compris annulés) les documents partagés et vos demandes de support, visibles par Youcef seul. Vous pouvez y modifier votre nom, votre téléphone et votre mot de passe ; le mot de passe provisoire transmis par Youcef est à remplacer dès votre première connexion. Les mots de passe sont hachés. Le cookie de session nécessaire à la connexion expire après huit heures.",
+        text: "Vous pouvez créer un espace client, ou Youcef peut vous en ouvrir un : il conserve vos nom, e-mail et téléphone, vos rendez-vous (y compris annulés), les documents partagés et vos demandes de support, visibles par Youcef seul. Vous pouvez y modifier votre nom, votre téléphone et votre mot de passe ; si Youcef vous a transmis un mot de passe provisoire, remplacez-le dès votre première connexion. Les mots de passe sont hachés. Le cookie de session nécessaire à la connexion expire après huit heures.",
       },
       {
         title: "À compléter",
