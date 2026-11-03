@@ -8,14 +8,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import type { Texts } from "@/content/texts"
 
+import { CalendlyDemo } from "./calendly-demo"
 import type { PortalData } from "./use-portal"
 
-type AdminAgendaProps = { dict: Texts["portal"]["agenda"]; agenda: PortalData["agenda"] }
+type AdminAgendaProps = {
+  dict: Texts["portal"]["agenda"]
+  agenda: PortalData["agenda"]
+  calendly: Omit<React.ComponentProps<typeof CalendlyDemo>, "dict">
+}
 
 // Carte « Agenda » du gérant : lien d'abonnement à copier dans Google Agenda et état de la synchronisation.
-export function AdminAgenda({ dict, agenda }: AdminAgendaProps) {
+export function AdminAgenda({ dict, agenda, calendly }: AdminAgendaProps) {
   const [copied, setCopied] = useState(false)
   const feedUrl = agenda?.feedPath ? `${window.location.origin}${agenda.feedPath}` : null
 
@@ -57,6 +63,8 @@ export function AdminAgenda({ dict, agenda }: AdminAgendaProps) {
         ) : (
           <p className="text-sm text-muted-foreground">{dict.feedMissing}</p>
         )}
+        <Separator />
+        <CalendlyDemo dict={dict.calendly} {...calendly} />
       </CardContent>
     </Card>
   )
