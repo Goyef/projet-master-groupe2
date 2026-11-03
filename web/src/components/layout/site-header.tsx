@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { Logo } from "@/components/layout/logo"
 import { MobileNav } from "@/components/layout/mobile-nav"
+import { ThemeMenu } from "@/components/layout/theme-menu"
 import { Button } from "@/components/ui/button"
 import { mainNav } from "@/config/site"
 import { texts as dict } from "@/content/texts"
@@ -21,19 +22,23 @@ export function SiteHeader() {
             </Button>
           ))}
         </nav>
-        <div className="hidden items-center gap-2 md:flex">
-          <Button variant="outline" render={<Link href={clientArea.href} />} nativeButton={false}>
-            {clientArea.title}
-          </Button>
-          <Button render={<Link href="/rendez-vous" />} nativeButton={false}>
-            {dict.nav.bookCta}
-          </Button>
-        </div>
-        <div className="md:hidden">
-          <MobileNav
-            items={[...items, clientArea]}
-            labels={{ menu: dict.nav.menu, open: dict.nav.openMenu, nav: dict.nav.mobileLabel }}
-          />
+        <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
+            <Button variant="outline" render={<Link href={clientArea.href} />} nativeButton={false}>
+              {clientArea.title}
+            </Button>
+            <Button render={<Link href="/rendez-vous" />} nativeButton={false}>
+              {dict.nav.bookCta}
+            </Button>
+          </div>
+          {/* Thème et mode clair / sombre, visible sur ordinateur comme sur mobile. */}
+          <ThemeMenu dict={dict.theme} />
+          <div className="md:hidden">
+            <MobileNav
+              items={[...items, clientArea]}
+              labels={{ menu: dict.nav.menu, open: dict.nav.openMenu, nav: dict.nav.mobileLabel }}
+            />
+          </div>
         </div>
       </div>
     </header>

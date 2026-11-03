@@ -16,6 +16,20 @@ export const texts = {
     mainLabel: "Navigation principale",
     mobileLabel: "Navigation mobile",
   },
+  theme: {
+    open: "Changer l’apparence du site",
+    themeLegend: "Thème",
+    modeLegend: "Mode",
+    themes: {
+      classique: { name: "Classique", description: "Ivoire et bleu profond" },
+      elegant: { name: "Élégant", description: "Champagne, coins droits" },
+      moderne: { name: "Moderne", description: "Bleu diamant, arrondis" },
+    },
+    modes: {
+      light: "Clair",
+      dark: "Sombre",
+    },
+  },
   footer: {
     pages: "Pages",
     legal: "Informations légales",

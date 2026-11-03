@@ -67,6 +67,10 @@
   --brand-champagne: #d9c9b4;
   --brand-diamond: #d0e7f5;
 
+  --font-body: var(--font-inter);
+  --font-display: var(--font-cormorant);
+  color-scheme: light;
+
   --background: var(--brand-ivory);
   --foreground: var(--brand-navy);
   --card: #faf5ef;
@@ -102,6 +106,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: var(--brand-navy);
   --foreground: var(--brand-ivory);
   --card: #10284a;
@@ -132,6 +137,134 @@
   --sidebar-accent: #1b3557;
   --sidebar-accent-foreground: var(--brand-ivory);
   --sidebar-border: rgb(242 232 220 / 12%);
+  --sidebar-ring: var(--brand-sky);
+}
+
+/*
+ * Thème « Élégant » : champagne et bleu profond, Playfair Display, coins droits.
+ */
+:root[data-theme="elegant"] {
+  --font-body: var(--font-source-sans);
+  --font-display: var(--font-playfair);
+  --radius: 0.25rem;
+
+  --background: #f7f3ee;
+  --foreground: var(--brand-navy);
+  --card: #fffdf9;
+  --card-foreground: var(--brand-navy);
+  --popover: #fffdf9;
+  --popover-foreground: var(--brand-navy);
+  --primary: var(--brand-navy);
+  --primary-foreground: #f7f3ee;
+  --secondary: var(--brand-champagne);
+  --secondary-foreground: var(--brand-navy);
+  --muted: #ece4d8;
+  --muted-foreground: #4a5a6e;
+  --accent: #e8ddcd;
+  --accent-foreground: var(--brand-navy);
+  --border: #dfd3c2;
+  --input: #cdbda6;
+  --ring: #b59f80;
+  --sidebar: #fffdf9;
+  --sidebar-foreground: var(--brand-navy);
+  --sidebar-primary: var(--brand-navy);
+  --sidebar-primary-foreground: #f7f3ee;
+  --sidebar-accent: #e8ddcd;
+  --sidebar-accent-foreground: var(--brand-navy);
+  --sidebar-border: #dfd3c2;
+  --sidebar-ring: #b59f80;
+}
+
+:root[data-theme="elegant"].dark {
+  --background: var(--brand-navy);
+  --foreground: var(--brand-ivory);
+  --card: #10284a;
+  --card-foreground: var(--brand-ivory);
+  --popover: #10284a;
+  --popover-foreground: var(--brand-ivory);
+  --primary: var(--brand-champagne);
+  --primary-foreground: var(--brand-navy);
+  --secondary: #1b3557;
+  --secondary-foreground: var(--brand-ivory);
+  --muted: #142f52;
+  --muted-foreground: #b5c4d4;
+  --accent: #2b3949;
+  --accent-foreground: #e8dccb;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(242 232 220 / 14%);
+  --input: rgb(242 232 220 / 30%);
+  --ring: var(--brand-champagne);
+  --sidebar: #071527;
+  --sidebar-foreground: var(--brand-ivory);
+  --sidebar-primary: var(--brand-champagne);
+  --sidebar-primary-foreground: var(--brand-navy);
+  --sidebar-accent: #2b3949;
+  --sidebar-accent-foreground: var(--brand-ivory);
+  --sidebar-border: rgb(242 232 220 / 10%);
+  --sidebar-ring: var(--brand-champagne);
+}
+
+/*
+ * Thème « Moderne » : blanc et bleu diamant, Manrope, coins arrondis.
+ */
+:root[data-theme="moderne"] {
+  --font-body: var(--font-manrope);
+  --font-display: var(--font-manrope);
+  --radius: 1rem;
+
+  --background: #ffffff;
+  --foreground: var(--brand-navy);
+  --card: #f5f9fc;
+  --card-foreground: var(--brand-navy);
+  --popover: #ffffff;
+  --popover-foreground: var(--brand-navy);
+  --primary: var(--brand-navy);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-diamond);
+  --secondary-foreground: var(--brand-navy);
+  --muted: #eef6fb;
+  --muted-foreground: #475a70;
+  --accent: var(--brand-diamond);
+  --accent-foreground: var(--brand-navy);
+  --border: #d6e6f0;
+  --input: #bcd3e2;
+  --ring: var(--brand-sky);
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--brand-navy);
+  --sidebar-primary: var(--brand-navy);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-diamond);
+  --sidebar-accent-foreground: var(--brand-navy);
+  --sidebar-border: #d6e6f0;
+  --sidebar-ring: var(--brand-sky);
+}
+
+:root[data-theme="moderne"].dark {
+  --background: #07162a;
+  --foreground: #f5f9fc;
+  --card: #0f2640;
+  --card-foreground: #f5f9fc;
+  --popover: #0f2640;
+  --popover-foreground: #f5f9fc;
+  --primary: var(--brand-diamond);
+  --primary-foreground: var(--brand-navy);
+  --secondary: #16304f;
+  --secondary-foreground: #f5f9fc;
+  --muted: #11284a;
+  --muted-foreground: #b3c6d8;
+  --accent: #16304f;
+  --accent-foreground: var(--brand-diamond);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(208 231 245 / 14%);
+  --input: rgb(208 231 245 / 22%);
+  --ring: var(--brand-sky);
+  --sidebar: #0f2640;
+  --sidebar-foreground: #f5f9fc;
+  --sidebar-primary: var(--brand-sky);
+  --sidebar-primary-foreground: var(--brand-navy);
+  --sidebar-accent: #16304f;
+  --sidebar-accent-foreground: var(--brand-diamond);
+  --sidebar-border: rgb(208 231 245 / 14%);
   --sidebar-ring: var(--brand-sky);
 }
 
