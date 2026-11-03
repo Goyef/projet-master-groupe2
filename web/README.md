@@ -35,14 +35,14 @@ pnpm dev              # http://localhost:3000
 - **Textes** : tous les textes du site sont dans `src/content/texts.ts` (français uniquement).
 - **Réservation** (`/rendez-vous`) : appel découverte (45 min) ou audit séminaire (45 min), sans compte. Champs demandés : prénom, nom, e-mail, téléphone et intention (« ce qui vous amène »), plus l'accord sur l'utilisation des données. Confirmation immédiate à l'écran.
 - **Format** : visioconférence uniquement pour l'instant. Le présentiel est à confirmer avec Youcef : ajouter `"presentiel"` à `meetingFormats` dans `src/config/site.ts` suffit à proposer le choix.
-- **Annulation / déplacement** : délai de 24 h annoncé sur le site ; pas de gestion en ligne, la personne prévient Youcef.
+- **Annulation / déplacement** : un client connecté annule ou déplace lui-même son rendez-vous depuis son espace, jusqu'à 24 h avant (règle vérifiée côté serveur). Le créneau libéré redevient réservable ; le rendez-vous annulé reste dans l'historique. En deçà de 24 h, ou pour un rendez-vous pris sans compte, la personne prévient Youcef.
 - **Comptes clients** (`/connexion`, onglet « Créer un compte ») : chaque client crée lui-même son compte (nom, e-mail, téléphone, mot de passe de 12 caractères minimum) et est connecté immédiatement. Le gérant ne crée pas de compte ; il voit la liste des clients et peut désactiver ou réactiver un compte.
-- **Espace client** : rendez-vous, documents partagés et réservation des **séances individuelles** (1 h) et des séances de suivi (1 h, à confirmer), réservées aux clients connectés, avec le téléphone du compte prérempli.
+- **Espace client** : prochain rendez-vous mis en avant ; rendez-vous à venir, passés et annulés, avec annulation et déplacement ; réservation des **séances individuelles** (1 h) et des séances de suivi (1 h, à confirmer), avec le téléphone du compte prérempli ; documents partagés ; profil (nom, téléphone) et changement de mot de passe, qui déconnecte les autres appareils.
 - **Espace gérant** (`/connexion` avec le compte de `ADMIN_EMAIL`) : rendez-vous avec téléphone et intention, disponibilités, PDF partagés, liste des comptes clients.
 - **Disponibilités** : le gérant saisit une plage (ex. 9 h – 18 h, 14 h maximum) et choisit la durée des créneaux (1 h, valable pour tous les rendez-vous, ou 45 min, pour les appels découverte et audits). La plage est découpée automatiquement ; les créneaux déjà couverts par une disponibilité sont ignorés.
 - Un créneau = un rendez-vous ; l'unicité en base empêche deux réservations concurrentes, et un verrou empêche deux disponibilités qui se chevauchent.
 
-Hors périmètre (décision de l'équipe) : e-mails de confirmation et de rappel, annulation ou déplacement en ligne, paiement.
+Hors périmètre (décision de l'équipe) : e-mails de confirmation et de rappel, paiement.
 
 ## Données
 
@@ -59,7 +59,7 @@ pnpm build
 pnpm test
 ```
 
-Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, les accès gérant/client, les documents privés, la désactivation et la déconnexion.
+Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), le profil et le mot de passe, les accès gérant/client, les documents privés, la désactivation et la déconnexion.
 
 ## Structure
 
@@ -70,8 +70,8 @@ src/
 │   ├── (site)/               # Pages publiques avec en-tête et pied de page
 │   └── api/portal/route.ts   # API : réservation, connexion, espace gérant
 ├── components/
-│   ├── account/              # Espace client / gérant
-│   ├── booking/              # Formulaire de réservation
+│   ├── account/              # Connexion, espace client, espace gérant
+│   ├── booking/              # Formulaire de réservation, sélecteur de créneaux
 │   ├── layout/               # En-tête, pied de page, logo, menu mobile
 │   ├── legal/                # Pages légales
 │   ├── sections/             # Blocs de page réutilisables

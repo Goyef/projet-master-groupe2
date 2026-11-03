@@ -364,8 +364,146 @@ test(
           (item) => item.type === "individuelle",
         ),
       );
+      // Gestion des rendez-vous par le client : déplacer et annuler, jusqu'à 24 h avant.
+      const aliceAppointment = (await request("", alice, "GET")).data.appointments.find(
+        (item) => item.type === "individuelle",
+      );
+      assert.equal(aliceAppointment.status, "confirmed");
+      assert.equal(aliceAppointment.changeable, true);
+      assert.equal(
+        (await request({ action: "cancel", id: aliceAppointment.id }, bob)).response.status,
+        404,
+      );
+      assert.equal(
+        (await request({ action: "cancel", id: aliceAppointment.id })).response.status,
+        401,
+      );
+      assert.equal(
+        (await request({ action: "cancel", id: aliceAppointment.id }, admin)).response.status,
+        401,
+      );
+      // Un créneau de 45 minutes ne convient pas à une séance d'une heure.
+      const shortSlot = (await request("?action=slots&type=audit", "", "GET")).data.slots.find(
+        (item) => item.ends - item.starts < 3600000,
+      );
+      assert.equal(
+        (
+          await request(
+            { action: "reschedule", id: aliceAppointment.id, slot: shortSlot.id },
+            alice,
+          )
+        ).response.status,
+        409,
+      );
+      const otherSlot = (
+        await request("?action=slots&type=individuelle", alice, "GET")
+      ).data.slots.find((item) => item.id !== individualSlot);
+      const moved = await request(
+        { action: "reschedule", id: aliceAppointment.id, slot: otherSlot.id },
+        alice,
+      );
+      assert.equal(moved.response.status, 200);
+      assert.equal(moved.data.starts, otherSlot.starts);
+      // L'ancien créneau redevient réservable.
+      assert.ok(
+        (await request("?action=slots&type=individuelle", alice, "GET")).data.slots.some(
+          (item) => item.id === individualSlot,
+        ),
+      );
+      assert.equal(
+        (await request({ action: "cancel", id: aliceAppointment.id }, alice)).response.status,
+        200,
+      );
+      const cancelledTwice = await request({ action: "cancel", id: aliceAppointment.id }, alice);
+      assert.equal(cancelledTwice.response.status, 409);
+      assert.equal(cancelledTwice.data.code, "alreadyCancelled");
+      assert.ok(
+        (await request("?action=slots&type=individuelle", alice, "GET")).data.slots.some(
+          (item) => item.id === otherSlot.id,
+        ),
+      );
+      const afterCancel = (await request("", alice, "GET")).data.appointments.find(
+        (item) => item.id === aliceAppointment.id,
+      );
+      assert.deepEqual([afterCancel.status, afterCancel.changeable], ["cancelled", false]);
+      assert.equal(
+        (await request("", admin, "GET")).data.appointments.find(
+          (item) => item.id === aliceAppointment.id,
+        ).status,
+        "cancelled",
+      );
+      // Moins de 24 h avant le rendez-vous : annulation et déplacement refusés.
+      const soon = Date.now() + 2 * 3600000;
+      for (const offset of [0, 2 * 3600000])
+        assert.equal(
+          (
+            await request(
+              {
+                action: "add-slot",
+                starts: soon + offset,
+                ends: soon + offset + 3600000,
+                minutes: 60,
+              },
+              admin,
+            )
+          ).response.status,
+          200,
+        );
+      const soonSlots = (await request("?action=slots&type=individuelle", bob, "GET")).data.slots
+        .filter((item) => item.starts - Date.now() < 86400000)
+        .map((item) => item.id);
+      assert.equal(soonSlots.length, 2);
+      const session = (slotId) => ({
+        action: "reserve",
+        type: "individuelle",
+        format: "visio",
+        slot: slotId,
+        phone: "06 00 00 00 00",
+        intention: "Séance de test.",
+        consent: true,
+      });
+      assert.equal((await request(session(soonSlots[0]), bob)).response.status, 200);
+      const bobSoon = (await request("", bob, "GET")).data.appointments.find(
+        (item) => item.type === "individuelle",
+      );
+      assert.equal(bobSoon.changeable, false);
+      const tooLate = await request({ action: "cancel", id: bobSoon.id }, bob);
+      assert.equal(tooLate.response.status, 409);
+      assert.equal(tooLate.data.code, "tooLateToChange");
+      // Déplacement vers un créneau situé à moins de 24 h : refusé.
+      assert.equal((await request(session(individualSlot), alice)).response.status, 200);
+      const aliceAgain = (await request("", alice, "GET")).data.appointments.find(
+        (item) => item.status === "confirmed" && item.type === "individuelle",
+      );
+      const tooSoon = await request(
+        { action: "reschedule", id: aliceAgain.id, slot: soonSlots[1] },
+        alice,
+      );
+      assert.equal(tooSoon.response.status, 409);
+      assert.equal(tooSoon.data.code, "slotTooSoon");
+      // Profil : nom et téléphone modifiables par le client.
+      const badPhone = await request(
+        { action: "update-profile", name: "Alice Martin", phone: "abc" },
+        alice,
+      );
+      assert.equal(badPhone.response.status, 400);
+      assert.equal(badPhone.data.field, "phone");
+      assert.equal(
+        (
+          await request(
+            { action: "update-profile", name: "Alice Martin", phone: "07 00 00 00 00" },
+            alice,
+          )
+        ).response.status,
+        200,
+      );
+      const profile = (await request("", alice, "GET")).data.user;
+      assert.deepEqual(
+        [profile.name, profile.phone, profile.email],
+        ["Alice Martin", "07 00 00 00 00", "alice@example.test"],
+      );
       const clients = (await request("", admin, "GET")).data.clients;
-      const aliceId = clients.find((client) => client.name === "Alice").id;
+      const aliceId = clients.find((client) => client.email === "alice@example.test").id;
       const pdf = new FormData();
       pdf.set("title", "Document privé Alice");
       pdf.set("user_id", String(aliceId));
@@ -420,6 +558,49 @@ test(
           })
         ).response.status,
         401,
+      );
+      // Mot de passe : l'ancien est exigé, les autres sessions du compte sont fermées.
+      const newPassword = randomBytes(16).toString("hex");
+      const wrongPassword = await request(
+        { action: "change-password", currentPassword: "incorrect", password: newPassword },
+        bob,
+      );
+      assert.equal(wrongPassword.response.status, 400);
+      assert.equal(wrongPassword.data.field, "currentPassword");
+      assert.equal(
+        (
+          await request(
+            { action: "change-password", currentPassword: password, password: "court" },
+            bob,
+          )
+        ).response.status,
+        400,
+      );
+      const otherBobSession = await login("bob@example.test");
+      assert.equal(
+        (
+          await request(
+            { action: "change-password", currentPassword: password, password: newPassword },
+            bob,
+          )
+        ).response.status,
+        200,
+      );
+      assert.equal((await request("", otherBobSession, "GET")).data.user, null);
+      assert.equal((await request("", bob, "GET")).data.user.role, "client");
+      assert.equal(
+        (await request({ action: "login", email: "bob@example.test", password })).response.status,
+        401,
+      );
+      assert.equal(
+        (
+          await request({
+            action: "login",
+            email: "bob@example.test",
+            password: newPassword,
+          })
+        ).response.status,
+        200,
       );
       assert.equal(
         (await request({ action: "logout" }, bob)).response.status,

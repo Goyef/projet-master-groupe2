@@ -7,6 +7,8 @@ import {
   addSlotRange,
   AppError,
   availableSlots,
+  cancelAppointment,
+  changePassword,
   currentUser,
   getDocument,
   listAppointments,
@@ -18,12 +20,14 @@ import {
   removeDocument,
   removeSlot,
   registerClient,
+  rescheduleAppointment,
   reserve,
   SLOT_LENGTHS,
   type SlotLength,
   toggleClient,
   toggleCompleted,
   types,
+  updateProfile,
   type AppointmentType,
   type MeetingFormat,
 } from "@/lib/store";
@@ -46,6 +50,8 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   badCredentials: "password",
   formatUnavailable: "format",
   slotTaken: "slot",
+  slotTooSoon: "slot",
+  wrongPassword: "currentPassword",
   slotPast: "starts",
   slotInvalid: "ends",
   slotOverlap: "starts",
@@ -129,7 +135,7 @@ export async function GET(request: NextRequest) {
       admin ? listUpcomingSlots() : undefined,
     ]);
     return response({
-      user: { name: user.name, role: user.role, phone: user.phone },
+      user: { name: user.name, email: user.email, role: user.role, phone: user.phone },
       appointments,
       documents,
       ...(admin ? { clients, slots } : {}),
@@ -217,6 +223,34 @@ export async function POST(request: NextRequest) {
         reference: appointment.id,
         starts: appointment.starts.getTime(),
       });
+    }
+    // Gestion de ses rendez-vous et de son profil par le client connecté.
+    if (
+      typeof data.action === "string" &&
+      ["cancel", "reschedule", "update-profile", "change-password"].includes(data.action)
+    ) {
+      if (user?.role !== "client") return failure("clientRequired", 401);
+      if (data.action === "cancel") {
+        await cancelAppointment(user, id(data.id));
+        return response({ ok: true });
+      }
+      if (data.action === "reschedule") {
+        const moved = await rescheduleAppointment(user, id(data.id), id(data.slot));
+        return response({ ok: true, starts: moved.starts.getTime() });
+      }
+      if (data.action === "update-profile") {
+        await updateProfile(user, text(data, "name"), phone(data));
+        return response({ ok: true });
+      }
+      const password = text(data, "password", 256);
+      if (password.length < 12) throw new AppError("passwordTooShort");
+      await changePassword(
+        user,
+        request.cookies.get("session")?.value ?? "",
+        text(data, "currentPassword", 256),
+        password,
+      );
+      return response({ ok: true });
     }
     if (user?.role !== "admin") return failure("adminRequired", 403);
     if (data.action === "toggle-client") {
