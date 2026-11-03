@@ -9,6 +9,8 @@ import {
   availableSlots,
   cancelAppointment,
   changePassword,
+  completedSessions,
+  createClient,
   createTicket,
   currentUser,
   getDocument,
@@ -19,11 +21,12 @@ import {
   listUpcomingSlots,
   login,
   logout,
+  MAX_REQUIRED_SESSIONS,
   removeDocument,
   removeSlot,
-  registerClient,
   replyTicket,
   rescheduleAppointment,
+  resetClientPassword,
   reserve,
   setTicketStatus,
   SLOT_LENGTHS,
@@ -62,6 +65,7 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   slotInvalid: "ends",
   slotOverlap: "starts",
   pdfInvalid: "file",
+  sessionsInvalid: "required_sessions",
 };
 
 function failure(code: ErrorCode, status = 400, detail?: string) {
@@ -141,19 +145,26 @@ export async function GET(request: NextRequest) {
     }
     if (!user) return response({ user: null });
     const admin = user.role === "admin";
-    const [appointments, documents, tickets, clients, slots] = await Promise.all([
+    const [appointments, documents, tickets, clients, slots, sessions] = await Promise.all([
       listAppointments(user),
       listDocuments(user),
       listTickets(user),
       admin ? listClients() : undefined,
       admin ? listUpcomingSlots() : undefined,
+      admin ? undefined : completedSessions(user.id),
     ]);
     return response({
-      user: { name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        passwordTemporary: user.passwordTemporary,
+      },
       appointments,
       documents,
       tickets,
-      ...(admin ? { clients, slots } : {}),
+      ...(admin ? { clients, slots } : { completedSessions: sessions }),
     });
   } catch (error) {
     return handle(error);
@@ -191,7 +202,15 @@ export async function POST(request: NextRequest) {
       if (bytes.subarray(0, 5).toString() !== "%PDF-")
         throw new AppError("pdfInvalid");
       const recipient = form.get("user_id") ? id(form.get("user_id")) : null;
-      await addDocument(title, bytes, recipient);
+      // Séances réalisées nécessaires avant que le client puisse ouvrir le document.
+      const requiredSessions = Number(form.get("required_sessions") || 0);
+      if (
+        !Number.isSafeInteger(requiredSessions) ||
+        requiredSessions < 0 ||
+        requiredSessions > MAX_REQUIRED_SESSIONS
+      )
+        throw new AppError("sessionsInvalid", 400, `required_sessions=${form.get("required_sessions")}`);
+      await addDocument(title, bytes, recipient, requiredSessions);
       return response({ ok: true });
     }
     const data = (await request.json()) as Record<string, unknown>;
@@ -199,19 +218,6 @@ export async function POST(request: NextRequest) {
       return withSession(
         await login(email(data), text(data, "password", 256)),
       );
-    if (data.action === "register") {
-      if (data.consent !== true) throw new AppError("consentRequired");
-      const password = text(data, "password", 256);
-      if (password.length < 12) throw new AppError("passwordTooShort");
-      return withSession(
-        await registerClient(
-          text(data, "name"),
-          email(data),
-          phone(data),
-          password,
-        ),
-      );
-    }
     if (data.action === "logout") {
       const token = request.cookies.get("session")?.value;
       if (token) await logout(token);
@@ -277,6 +283,15 @@ export async function POST(request: NextRequest) {
       return response({ ok: true });
     }
     if (user?.role !== "admin") return failure("adminRequired", 403);
+    // Les comptes clients sont créés par le gérant : le mot de passe provisoire
+    // n'est renvoyé qu'ici, une seule fois, pour qu'il le transmette au client.
+    if (data.action === "create-client") {
+      const password = await createClient(text(data, "name"), email(data), phone(data));
+      return response({ ok: true, password });
+    }
+    if (data.action === "reset-client-password") {
+      return response({ ok: true, password: await resetClientPassword(id(data.id)) });
+    }
     if (data.action === "toggle-client") {
       await toggleClient(id(data.id));
     } else if (data.action === "add-slot") {

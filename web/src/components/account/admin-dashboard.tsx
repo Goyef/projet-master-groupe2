@@ -6,7 +6,7 @@ import { DownloadIcon, LogOutIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Texts } from "@/content/texts"
 import { format, formatDateTime } from "@/lib/format"
 
+import { ClientAccounts } from "./client-accounts"
 import { AdminSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -141,7 +142,12 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
                     <DownloadIcon data-icon="inline-start" />
                     {document.title}
                   </Button>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant="outline">
+                      {document.required_sessions
+                        ? format(dict.documentAfter, { count: document.required_sessions })
+                        : dict.documentImmediate}
+                    </Badge>
                     <span className="text-sm text-muted-foreground">{clientName(document.user_id)}</span>
                     <Button
                       size="sm"
@@ -167,7 +173,7 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
           >
             <FieldGroup>
               <h3 className="text-xl font-semibold">{dict.shareTitle}</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field>
                   <FieldLabel htmlFor="doc-title" data-invalid={isInvalid("documents", "title")}>
                     {dict.docTitle}
@@ -203,6 +209,25 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
                       ))}
                     </SelectContent>
                   </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="doc-sessions" data-invalid={isInvalid("documents", "required_sessions")}>
+                    {dict.requiredSessions}
+                  </FieldLabel>
+                  <Input
+                    id="doc-sessions"
+                    aria-invalid={isInvalid("documents", "required_sessions")}
+                    name="required_sessions"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={50}
+                    step={1}
+                    defaultValue={0}
+                    required
+                  />
+                  <FieldDescription>{dict.requiredSessionsHint}</FieldDescription>
+                  {errorFor("documents", "required_sessions")}
                 </Field>
               </div>
               <Field>
@@ -328,42 +353,7 @@ export function AdminDashboard({ dict, types, formats, portal }: AdminDashboardP
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">{dict.clientsTitle}</CardTitle>
-          <CardDescription>{dict.clientsIntro}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {feedbackFor("clients")}
-          {!data.clients?.length && <p className="text-muted-foreground">{dict.noClients}</p>}
-          <ul className="divide-y">
-            {data.clients?.map((client) => (
-              <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <span>
-                  {client.name}
-                  <span className="block text-sm text-muted-foreground">
-                    {client.email}
-                    {client.phone && ` · ${client.phone}`}
-                  </span>
-                </span>
-                <div className="flex items-center gap-3">
-                  <Badge variant={client.active ? "default" : "outline"}>
-                    {client.active ? dict.active : dict.disabled}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => act({ action: "toggle-client", id: client.id }, { scope: "clients" })}
-                  >
-                    {client.active ? dict.disable : dict.enable}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <ClientAccounts dict={dict} portal={portal} />
     </div>
   )
 }

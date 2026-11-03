@@ -3,10 +3,11 @@ import { join } from "node:path";
 import {
   createHash,
   randomBytes,
+  randomInt,
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
@@ -39,6 +40,7 @@ export type User = {
   phone: string | null;
   role: "admin" | "client";
   active: boolean;
+  passwordTemporary: boolean;
 };
 
 // Erreur métier : `code` correspond à une clé de traduction (dictionnaire `errors`).
@@ -131,6 +133,7 @@ export async function currentUser(token?: string): Promise<User | null> {
       phone: users.phone,
       role: users.role,
       active: users.active,
+      passwordTemporary: users.passwordTemporary,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -334,7 +337,7 @@ export async function changePassword(
     throw new AppError("wrongPassword", 400);
   await database
     .update(users)
-    .set({ password: hashPassword(next) })
+    .set({ password: hashPassword(next), passwordTemporary: false })
     .where(eq(users.id, user.id));
   await database
     .delete(sessions)
@@ -346,32 +349,63 @@ export async function changePassword(
     );
 }
 
-export async function listDocuments(user: User) {
+// Types de rendez-vous qui comptent comme une séance du parcours client.
+const SESSION_TYPES: AppointmentType[] = ["suivi"];
+export const MAX_REQUIRED_SESSIONS = 50;
+
+// Séances réalisées par le client : rendez-vous confirmés que le gérant a marqués « réalisés ».
+export async function completedSessions(userId: number) {
   const database = await db();
-  return database
-    .select({ id: documents.id, title: documents.title, user_id: documents.userId })
-    .from(documents)
+  const [row] = await database
+    .select({ total: count() })
+    .from(appointments)
     .where(
-      user.role === "admin"
-        ? undefined
-        : sql`${documents.userId} IS NULL OR ${documents.userId} = ${user.id}`,
+      and(
+        eq(appointments.userId, userId),
+        eq(appointments.completed, true),
+        eq(appointments.status, "confirmed"),
+        inArray(appointments.type, SESSION_TYPES),
+      ),
     );
+  return row?.total ?? 0;
 }
 
+const visibleTo = (user: User) =>
+  user.role === "admin"
+    ? undefined
+    : sql`(${documents.userId} IS NULL OR ${documents.userId} = ${user.id})`;
+
+// Le gérant voit tout ; le client voit aussi les documents encore verrouillés, sans pouvoir les ouvrir.
+export async function listDocuments(user: User) {
+  const database = await db();
+  const rows = await database
+    .select({
+      id: documents.id,
+      title: documents.title,
+      user_id: documents.userId,
+      required_sessions: documents.requiredSessions,
+    })
+    .from(documents)
+    .where(visibleTo(user))
+    .orderBy(asc(documents.requiredSessions), asc(documents.id));
+  const done = user.role === "admin" ? Infinity : await completedSessions(user.id);
+  return rows.map((row) => ({ ...row, unlocked: row.required_sessions <= done }));
+}
+
+// Contenu du document, ou `locked` si le client n'a pas encore réalisé assez de séances.
 export async function getDocument(user: User, id: number) {
   const database = await db();
   const [document] = await database
-    .select({ content: documents.content })
+    .select({ content: documents.content, requiredSessions: documents.requiredSessions })
     .from(documents)
-    .where(
-      and(
-        eq(documents.id, id),
-        user.role === "admin"
-          ? undefined
-          : sql`(${documents.userId} IS NULL OR ${documents.userId} = ${user.id})`,
-      ),
-    );
-  return document ?? null;
+    .where(and(eq(documents.id, id), visibleTo(user)));
+  if (!document) return null;
+  if (
+    user.role !== "admin" &&
+    document.requiredSessions > (await completedSessions(user.id))
+  )
+    throw new AppError("documentLocked", 403);
+  return document;
 }
 
 export async function listClients() {
@@ -383,6 +417,7 @@ export async function listClients() {
       email: users.email,
       phone: users.phone,
       active: users.active,
+      passwordTemporary: users.passwordTemporary,
     })
     .from(users)
     .where(eq(users.role, "client"))
@@ -471,24 +506,52 @@ export async function toggleCompleted(id: number) {
   if (!updated.length) throw new AppError("notStartedYet", 409);
 }
 
-// Inscription libre d'un client : le compte est actif tout de suite et la session ouverte.
-export async function registerClient(
-  name: string,
-  email: string,
-  phone: string,
-  password: string,
-) {
+// Mot de passe provisoire lisible à transmettre au client, ex. « K7QM-4XRT-9WHP-2NCF ».
+// Alphabet sans caractères ambigus (0/O, 1/I/L) : 4 groupes de 4, soit environ 80 bits d'entropie.
+const TEMPORARY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function temporaryPassword() {
+  const groups = Array.from({ length: 4 }, () =>
+    Array.from(
+      { length: 4 },
+      () => TEMPORARY_ALPHABET[randomInt(TEMPORARY_ALPHABET.length)],
+    ).join(""),
+  );
+  return groups.join("-");
+}
+
+// Création d'un compte client par le gérant. Le mot de passe provisoire n'est renvoyé
+// qu'une fois, en clair, pour être transmis au client ; seul son hash est conservé.
+export async function createClient(name: string, email: string, phone: string) {
   const database = await db();
+  const password = temporaryPassword();
   try {
-    const [account] = await database
-      .insert(users)
-      .values({ name, email, phone, password: hashPassword(password), role: "client" })
-      .returning({ id: users.id });
-    return createSession(account.id);
+    await database.insert(users).values({
+      name,
+      email,
+      phone,
+      password: hashPassword(password),
+      passwordTemporary: true,
+      role: "client",
+    });
+    return password;
   } catch (error) {
     if (isUniqueViolation(error)) throw new AppError("emailTaken", 409);
     throw error;
   }
+}
+
+// Nouveau mot de passe provisoire (client qui a perdu le sien) : ses sessions sont fermées.
+export async function resetClientPassword(id: number) {
+  const database = await db();
+  const password = temporaryPassword();
+  const updated = await database
+    .update(users)
+    .set({ password: hashPassword(password), passwordTemporary: true })
+    .where(and(eq(users.id, id), eq(users.role, "client")))
+    .returning({ id: users.id });
+  if (!updated.length) throw new AppError("clientNotFound", 404);
+  await database.delete(sessions).where(eq(sessions.userId, id));
+  return password;
 }
 
 export async function toggleClient(id: number) {
@@ -500,7 +563,12 @@ export async function toggleClient(id: number) {
   await database.delete(sessions).where(eq(sessions.userId, id));
 }
 
-export async function addDocument(title: string, content: Buffer, recipient: number | null) {
+export async function addDocument(
+  title: string,
+  content: Buffer,
+  recipient: number | null,
+  requiredSessions = 0,
+) {
   const database = await db();
   if (recipient) {
     const [client] = await database
@@ -509,7 +577,9 @@ export async function addDocument(title: string, content: Buffer, recipient: num
       .where(and(eq(users.id, recipient), eq(users.role, "client")));
     if (!client) throw new AppError("clientNotFound", 404);
   }
-  await database.insert(documents).values({ title, content, userId: recipient });
+  await database
+    .insert(documents)
+    .values({ title, content, userId: recipient, requiredSessions });
 }
 
 export async function removeDocument(id: number) {

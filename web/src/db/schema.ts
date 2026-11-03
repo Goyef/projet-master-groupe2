@@ -19,9 +19,11 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  // Renseigné à l'inscription des clients ; vide pour le compte gérant.
+  // Renseigné à la création des comptes clients ; vide pour le compte gérant.
   phone: text("phone"),
   password: text("password").notNull(),
+  // Mot de passe provisoire choisi à la création par le gérant : le client est invité à le changer.
+  passwordTemporary: boolean("password_temporary").notNull().default(false),
   role: text("role", { enum: ["admin", "client"] }).notNull(),
   active: boolean("active").notNull().default(true),
 });
@@ -79,6 +81,8 @@ export const documents = pgTable("documents", {
   userId: integer("user_id").references(() => users.id, {
     onDelete: "cascade",
   }),
+  // Parcours : nombre de séances réalisées nécessaires pour y accéder (0 = tout de suite).
+  requiredSessions: integer("required_sessions").notNull().default(0),
 });
 
 export const loginAttempts = pgTable("login_attempts", {
