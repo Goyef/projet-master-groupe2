@@ -24,6 +24,7 @@ import {
   MAX_REQUIRED_SESSIONS,
   removeDocument,
   removeSlot,
+  registerClient,
   replyTicket,
   rescheduleAppointment,
   resetClientPassword,
@@ -218,6 +219,15 @@ export async function POST(request: NextRequest) {
       return withSession(
         await login(email(data), text(data, "password", 256)),
       );
+    // Inscription libre : le visiteur crée lui-même son compte client et est connecté.
+    if (data.action === "register") {
+      if (data.consent !== true) throw new AppError("consentRequired");
+      const password = text(data, "password", 256);
+      if (password.length < 12) throw new AppError("passwordTooShort");
+      return withSession(
+        await registerClient(text(data, "name"), email(data), phone(data), password),
+      );
+    }
     if (data.action === "logout") {
       const token = request.cookies.get("session")?.value;
       if (token) await logout(token);

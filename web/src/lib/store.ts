@@ -506,6 +506,27 @@ export async function toggleCompleted(id: number) {
   if (!updated.length) throw new AppError("notStartedYet", 409);
 }
 
+// Inscription libre d'un client depuis /connexion : le compte est actif tout de suite
+// et la session ouverte. Le mot de passe est choisi par le client (pas provisoire).
+export async function registerClient(
+  name: string,
+  email: string,
+  phone: string,
+  password: string,
+) {
+  const database = await db();
+  try {
+    const [account] = await database
+      .insert(users)
+      .values({ name, email, phone, password: hashPassword(password), role: "client" })
+      .returning({ id: users.id });
+    return createSession(account.id);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new AppError("emailTaken", 409);
+    throw error;
+  }
+}
+
 // Mot de passe provisoire lisible à transmettre au client, ex. « K7QM-4XRT-9WHP-2NCF ».
 // Alphabet sans caractères ambigus (0/O, 1/I/L) : 4 groupes de 4, soit environ 80 bits d'entropie.
 const TEMPORARY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
