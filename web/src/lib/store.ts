@@ -16,6 +16,7 @@ import { Pool } from "pg";
 import * as schema from "@/db/schema";
 import {
   appointments,
+  documentRecipients,
   documents,
   loginAttempts,
   sessions,
@@ -402,23 +403,37 @@ export async function completedSessions(userId: number) {
 const visibleTo = (user: User) =>
   user.role === "admin"
     ? undefined
-    : sql`(${documents.userId} IS NULL OR ${documents.userId} = ${user.id})`;
+    : sql`(${documents.allClients} OR EXISTS (SELECT 1 FROM ${documentRecipients} WHERE ${documentRecipients.documentId} = ${documents.id} AND ${documentRecipients.userId} = ${user.id}))`;
 
 // Le gérant voit tout ; le client voit aussi les documents encore verrouillés, sans pouvoir les ouvrir.
+// Les destinataires (`recipients`) ne sont renvoyés qu'au gérant.
 export async function listDocuments(user: User) {
   const database = await db();
   const rows = await database
     .select({
       id: documents.id,
       title: documents.title,
-      user_id: documents.userId,
+      all_clients: documents.allClients,
       required_sessions: documents.requiredSessions,
     })
     .from(documents)
     .where(visibleTo(user))
     .orderBy(asc(documents.requiredSessions), asc(documents.id));
   const done = user.role === "admin" ? Infinity : await completedSessions(user.id);
-  return rows.map((row) => ({ ...row, unlocked: row.required_sessions <= done }));
+  const recipients = new Map<number, number[]>();
+  if (user.role === "admin" && rows.length) {
+    const links = await database
+      .select()
+      .from(documentRecipients)
+      .where(inArray(documentRecipients.documentId, rows.map((row) => row.id)));
+    for (const link of links)
+      recipients.set(link.documentId, [...(recipients.get(link.documentId) ?? []), link.userId]);
+  }
+  return rows.map((row) => ({
+    ...row,
+    unlocked: row.required_sessions <= done,
+    ...(user.role === "admin" ? { recipients: recipients.get(row.id) ?? [] } : {}),
+  }));
 }
 
 // Contenu du document, ou `locked` si le client n'a pas encore réalisé assez de séances.
@@ -613,23 +628,33 @@ export async function toggleClient(id: number) {
   await database.delete(sessions).where(eq(sessions.userId, id));
 }
 
+// Partage un PDF avec tous les clients (`recipients` = "all") ou avec une liste de clients.
 export async function addDocument(
   title: string,
   content: Buffer,
-  recipient: number | null,
+  recipients: "all" | number[],
   requiredSessions = 0,
 ) {
   const database = await db();
-  if (recipient) {
-    const [client] = await database
+  const clientIds = recipients === "all" ? [] : [...new Set(recipients)];
+  if (recipients !== "all") {
+    if (!clientIds.length) throw new AppError("recipientsRequired");
+    const found = await database
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.id, recipient), eq(users.role, "client")));
-    if (!client) throw new AppError("clientNotFound", 404);
+      .where(and(inArray(users.id, clientIds), eq(users.role, "client")));
+    if (found.length !== clientIds.length) throw new AppError("clientNotFound", 404);
   }
-  await database
-    .insert(documents)
-    .values({ title, content, userId: recipient, requiredSessions });
+  await database.transaction(async (tx) => {
+    const [document] = await tx
+      .insert(documents)
+      .values({ title, content, allClients: recipients === "all", requiredSessions })
+      .returning({ id: documents.id });
+    if (clientIds.length)
+      await tx
+        .insert(documentRecipients)
+        .values(clientIds.map((userId) => ({ documentId: document.id, userId })));
+  });
 }
 
 export async function removeDocument(id: number) {

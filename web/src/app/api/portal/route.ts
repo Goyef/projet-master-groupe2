@@ -63,6 +63,7 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   badCredentials: "password",
   formatUnavailable: "format",
   slotTaken: "slot",
+  recipientsRequired: "recipients",
   slotTooSoon: "slot",
   wrongPassword: "currentPassword",
   slotPast: "starts",
@@ -217,7 +218,9 @@ export async function POST(request: NextRequest) {
       const bytes = Buffer.from(await file.arrayBuffer());
       if (bytes.subarray(0, 5).toString() !== "%PDF-")
         throw new AppError("pdfInvalid");
-      const recipient = form.get("user_id") ? id(form.get("user_id")) : null;
+      // Destinataires : tous les clients, ou une liste de clients (champ `user_ids` répété).
+      const recipients =
+        form.get("all_clients") === "true" ? ("all" as const) : form.getAll("user_ids").map(id);
       // Séances réalisées nécessaires avant que le client puisse ouvrir le document.
       const requiredSessions = Number(form.get("required_sessions") || 0);
       if (
@@ -226,7 +229,7 @@ export async function POST(request: NextRequest) {
         requiredSessions > MAX_REQUIRED_SESSIONS
       )
         throw new AppError("sessionsInvalid", 400, `required_sessions=${form.get("required_sessions")}`);
-      await addDocument(title, bytes, recipient, requiredSessions);
+      await addDocument(title, bytes, recipients, requiredSessions);
       return response({ ok: true });
     }
     const data = (await request.json()) as Record<string, unknown>;

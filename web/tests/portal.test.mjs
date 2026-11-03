@@ -638,7 +638,7 @@ test(
       const aliceId = clients.find((client) => client.email === "alice@example.test").id;
       const pdf = new FormData();
       pdf.set("title", "Document privé Alice");
-      pdf.set("user_id", String(aliceId));
+      pdf.append("user_ids", String(aliceId));
       pdf.set(
         "file",
         new Blob(["%PDF-1.4\n%%EOF"], { type: "application/pdf" }),
@@ -661,6 +661,57 @@ test(
         (await request(documentUrl, "", "GET")).response.status,
         401,
       );
+      // Partage avec plusieurs clients choisis, ou avec tous les clients.
+      const bobClientId = clients.find((client) => client.email === "bob@example.test").id;
+      const sharePdf = (title, recipients) => {
+        const form = new FormData();
+        form.set("title", title);
+        if (recipients === "all") form.set("all_clients", "true");
+        else for (const recipient of recipients) form.append("user_ids", String(recipient));
+        form.set("file", new Blob(["%PDF-1.4\n%%EOF"], { type: "application/pdf" }), "partage.pdf");
+        return request(form, admin);
+      };
+      const noRecipient = await sharePdf("Sans destinataire", []);
+      assert.equal(noRecipient.response.status, 400);
+      assert.equal(noRecipient.data.field, "recipients");
+      assert.equal((await sharePdf("Client inconnu", [aliceId, 999999])).response.status, 404);
+      // Le gérant n'est pas un client : il ne peut pas être destinataire.
+      // (Base de test neuve : le compte gérant est le premier créé, donc l'id 1.)
+      assert.equal((await sharePdf("Destinataire gérant", [1])).response.status, 404);
+      // Doublons ignorés : Alice n'est enregistrée qu'une fois.
+      assert.equal((await sharePdf("Alice et Bob", [aliceId, bobClientId, aliceId])).response.status, 200);
+      const titlesOf = async (cookie) =>
+        (await request("", cookie, "GET")).data.documents.map((item) => item.title).sort();
+      assert.deepEqual(await titlesOf(alice), ["Alice et Bob", "Document privé Alice"]);
+      assert.deepEqual(await titlesOf(bob), ["Alice et Bob"]);
+      assert.deepEqual(await titlesOf(registeredSession), []);
+      // Le client ne voit pas la liste des autres destinataires ; le gérant, si.
+      const aliceShared = (await request("", alice, "GET")).data.documents.find(
+        (item) => item.title === "Alice et Bob",
+      );
+      assert.equal(aliceShared.recipients, undefined);
+      const adminShared = (await request("", admin, "GET")).data.documents.find(
+        (item) => item.title === "Alice et Bob",
+      );
+      assert.deepEqual(
+        [adminShared.all_clients, [...adminShared.recipients].sort((a, b) => a - b)],
+        [false, [aliceId, bobClientId].sort((a, b) => a - b)],
+      );
+      assert.equal(
+        (await request("?action=document&id=" + aliceShared.id, registeredSession, "GET")).response
+          .status,
+        404,
+      );
+      assert.equal((await sharePdf("Pour tous", "all")).response.status, 200);
+      assert.deepEqual(await titlesOf(registeredSession), ["Pour tous"]);
+      assert.ok((await titlesOf(bob)).includes("Pour tous"));
+      // Les documents ajoutés ici ne doivent pas perturber la suite : on les retire.
+      for (const item of (await request("", admin, "GET")).data.documents)
+        if (["Alice et Bob", "Pour tous"].includes(item.title))
+          assert.equal(
+            (await request({ action: "remove-document", id: item.id }, admin)).response.status,
+            200,
+          );
       // Espace de tickets : une demande est déposée, suivie, puis clôturée.
       assert.equal(
         (await request({ action: "create-ticket", subject: "Sans compte", message: "…" }))
@@ -767,7 +818,7 @@ test(
       const share = (title, requiredSessions) => {
         const form = new FormData();
         form.set("title", title);
-        form.set("user_id", String(bobId));
+        form.append("user_ids", String(bobId));
         form.set("required_sessions", String(requiredSessions));
         form.set(
           "file",

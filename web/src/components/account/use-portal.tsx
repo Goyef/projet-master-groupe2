@@ -59,7 +59,15 @@ export type PortalData = {
   } | null
   appointments?: Appointment[]
   // `unlocked` : le client a réalisé au moins `required_sessions` séances (toujours vrai pour le gérant).
-  documents?: { id: number; title: string; user_id: number | null; required_sessions: number; unlocked: boolean }[]
+  // `recipients` : clients destinataires, renvoyés au gérant uniquement (vide si `all_clients`).
+  documents?: {
+    id: number
+    title: string
+    all_clients: boolean
+    recipients?: number[]
+    required_sessions: number
+    unlocked: boolean
+  }[]
   completedSessions?: number
   tickets?: Ticket[]
   clients?: Client[]
