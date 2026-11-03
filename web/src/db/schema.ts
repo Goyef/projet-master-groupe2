@@ -62,6 +62,11 @@ export const appointments = pgTable(
     starts: moment("starts").notNull(),
     ends: moment("ends").notNull(),
     completed: boolean("completed").notNull().default(false),
+    // Un rendez-vous annulé libère son créneau (slot_id remis à NULL) mais reste dans l'historique.
+    status: text("status", { enum: ["confirmed", "cancelled"] })
+      .notNull()
+      .default("confirmed"),
+    cancelledAt: moment("cancelled_at"),
     createdAt: moment("created_at").notNull().defaultNow(),
   },
   (table) => [index("appointments_starts_idx").on(table.starts)],
