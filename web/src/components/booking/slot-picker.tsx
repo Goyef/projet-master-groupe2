@@ -6,6 +6,8 @@ import { Field, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TIME_ZONE } from "@/lib/format"
+import { intlLocales } from "@/lib/i18n"
+import { useLocale } from "@/components/i18n/locale-provider"
 
 export type Slot = { id: number; starts: number }
 
@@ -30,10 +32,11 @@ export function SlotPicker({
   emptyLabel,
   idPrefix = "slot",
 }: SlotPickerProps) {
+  const locale = useLocale()
   const days = useMemo(() => {
     const groups = new Map<string, Slot[]>()
     for (const item of slots) {
-      const day = new Date(item.starts).toLocaleDateString("fr-FR", {
+      const day = new Date(item.starts).toLocaleDateString(intlLocales[locale], {
         timeZone: TIME_ZONE,
         weekday: "long",
         day: "numeric",
@@ -42,7 +45,7 @@ export function SlotPicker({
       groups.set(day, [...(groups.get(day) ?? []), item])
     }
     return [...groups]
-  }, [slots])
+  }, [slots, locale])
 
   if (loading)
     return (
@@ -74,7 +77,7 @@ export function SlotPicker({
                 <Field orientation="horizontal" className="justify-center">
                   <RadioGroupItem value={String(item.id)} id={`${idPrefix}-${item.id}`} className="sr-only" />
                   <FieldTitle>
-                    {new Date(item.starts).toLocaleTimeString("fr-FR", {
+                    {new Date(item.starts).toLocaleTimeString(intlLocales[locale], {
                       timeZone: TIME_ZONE,
                       hour: "2-digit",
                       minute: "2-digit",

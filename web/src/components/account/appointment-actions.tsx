@@ -1,5 +1,7 @@
 "use client"
 
+import { useDateFormatter, useLocalizedFetch } from "@/components/i18n/locale-provider"
+
 import { useEffect, useState } from "react"
 import { CalendarClockIcon, XIcon } from "lucide-react"
 
@@ -28,7 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { FieldSet } from "@/components/ui/field"
 import type { Texts } from "@/content/texts"
-import { format, formatDateTime } from "@/lib/format"
+import { format } from "@/lib/format"
 
 import type { Appointment, Portal } from "./use-portal"
 
@@ -45,6 +47,8 @@ type ActionProps = {
 const CHANGE_NOTICE_MS = 24 * 3600_000
 
 function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inverted }: ActionProps) {
+  const formatDateTime = useDateFormatter()
+  const localizedFetch = useLocalizedFetch()
   const [open, setOpen] = useState(false)
   const [slots, setSlots] = useState<Slot[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +60,7 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
   useEffect(() => {
     if (!open) return
     const controller = new AbortController()
-    fetch(`/api/portal?action=slots&type=${appointment.type}`, { signal: controller.signal })
+    localizedFetch(`/api/portal?action=slots&type=${appointment.type}`, { signal: controller.signal })
       .then(async (response) => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error)
@@ -72,7 +76,7 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [open, appointment.type, scope, setMessage])
+  }, [open, appointment.type, scope, setMessage, localizedFetch])
 
   async function confirm() {
     let starts = 0
@@ -140,6 +144,7 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
 }
 
 function CancelDialog({ appointment, dict, types, portal, inverted }: ActionProps) {
+  const formatDateTime = useDateFormatter()
   const [open, setOpen] = useState(false)
   const { act, busy } = portal
   return (

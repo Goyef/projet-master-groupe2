@@ -6,11 +6,15 @@ import { BookingForm } from "@/components/booking/booking-form"
 import { bookingDictionary } from "@/components/booking/booking-dictionary"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { texts as dict } from "@/content/texts"
+import { getTexts, canonicalUrl } from "@/lib/i18n-server"
 
-export const metadata: Metadata = { title: dict.booking.metaTitle }
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getTexts()
+  return { title: dict.booking.metaTitle, alternates: canonicalUrl("/rendez-vous") }
+}
 
-export default function BookingPage() {
+export default async function BookingPage() {
+  const dict = await getTexts()
   return (
     <section className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.15fr]">
       <div className="space-y-6">

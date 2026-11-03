@@ -1,5 +1,13 @@
 // Textes proposés par l'équipe : à faire valider par Youcef avant mise en ligne.
 export const texts = {
+  language: { open: "Changer de langue", label: "Langue" },
+  common: {
+    close: "Fermer",
+    demoNotice: "Projet scolaire · Textes à valider · Utilisez des données de test",
+    notFoundTitle: "Page introuvable",
+    notFoundText: "Cette page n’existe pas ou a été déplacée.",
+    backHome: "Retour à l’accueil",
+  },
   meta: {
     description:
       "Synégo — coaching-thérapie pour prendre conscience du vide émotionnel et retrouver un élan qui vous ressemble.",
@@ -527,7 +535,7 @@ export const texts = {
       },
       {
         title: "Cookies",
-        text: "Le site n’utilise qu’un cookie strictement nécessaire : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures). Il ne nécessite pas votre consentement. Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
+        text: "Le site n’utilise que des cookies strictement nécessaires, qui ne demandent pas votre consentement : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures) et le cookie synego-locale, qui mémorise la langue choisie pendant un an. Le thème d’affichage choisi est enregistré uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
       },
       {
         title: "Durées de conservation",
