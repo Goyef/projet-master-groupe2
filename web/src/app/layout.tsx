@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Cormorant_Garamond, Inter } from "next/font/google"
 
 import { siteConfig } from "@/config/site"
+import { texts } from "@/content/texts"
 import "./globals.css"
 
 const body = Inter({
@@ -20,10 +21,10 @@ export const metadata: Metadata = {
     default: siteConfig.name,
     template: `%s · ${siteConfig.name}`,
   },
-  description: siteConfig.description,
+  description: texts.meta.description,
   openGraph: {
     type: "website",
-    locale: siteConfig.locale,
+    locale: "fr_FR",
     siteName: siteConfig.name,
   },
 }

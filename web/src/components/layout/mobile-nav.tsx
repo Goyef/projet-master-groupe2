@@ -12,22 +12,24 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { mainNav } from "@/config/site"
 
-export function MobileNav() {
+type MobileNavProps = {
+  items: { title: string; href: string }[]
+  labels: { menu: string; open: string; nav: string }
+}
+
+export function MobileNav({ items, labels }: MobileNavProps) {
   return (
     <Sheet>
-      <SheetTrigger
-        render={<Button variant="ghost" size="icon" className="md:hidden" aria-label="Ouvrir le menu" />}
-      >
+      <SheetTrigger render={<Button variant="ghost" size="icon" aria-label={labels.open} />}>
         <MenuIcon />
       </SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Menu</SheetTitle>
+          <SheetTitle>{labels.menu}</SheetTitle>
         </SheetHeader>
-        <nav aria-label="Navigation mobile" className="flex flex-col gap-1 px-4">
-          {mainNav.map((item) => (
+        <nav aria-label={labels.nav} className="flex flex-col gap-1 px-4">
+          {items.map((item) => (
             <SheetClose
               nativeButton={false}
               key={item.href}
@@ -36,12 +38,6 @@ export function MobileNav() {
               {item.title}
             </SheetClose>
           ))}
-          <SheetClose
-            nativeButton={false}
-            render={<Link href="/connexion" className="rounded-md px-3 py-2 text-base hover:bg-muted" />}
-          >
-            Espace client
-          </SheetClose>
         </nav>
       </SheetContent>
     </Sheet>

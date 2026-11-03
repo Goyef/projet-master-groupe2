@@ -1,0 +1,327 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { siteConfig } from "@/config/site";
+import { texts } from "@/content/texts";
+import {
+  addDocument,
+  addSlotRange,
+  AppError,
+  availableSlots,
+  cancelAppointment,
+  changePassword,
+  completedSessions,
+  createClient,
+  currentUser,
+  getDocument,
+  listAppointments,
+  listClients,
+  listDocuments,
+  listUpcomingSlots,
+  login,
+  logout,
+  MAX_REQUIRED_SESSIONS,
+  removeDocument,
+  removeSlot,
+  rescheduleAppointment,
+  resetClientPassword,
+  reserve,
+  SLOT_LENGTHS,
+  type SlotLength,
+  toggleClient,
+  toggleCompleted,
+  types,
+  updateProfile,
+  type AppointmentType,
+  type MeetingFormat,
+} from "@/lib/store";
+
+type ErrorCode = keyof typeof texts.errors;
+
+function response(data: unknown, status = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+// Champ du formulaire concerné par chaque erreur : le message s'affiche sous ce champ.
+const errorFields: Partial<Record<ErrorCode, string>> = {
+  invalidEmail: "email",
+  invalidPhone: "phone",
+  consentRequired: "consent",
+  passwordTooShort: "password",
+  emailTaken: "email",
+  badCredentials: "password",
+  formatUnavailable: "format",
+  slotTaken: "slot",
+  slotTooSoon: "slot",
+  wrongPassword: "currentPassword",
+  slotPast: "starts",
+  slotInvalid: "ends",
+  slotOverlap: "starts",
+  pdfInvalid: "file",
+  sessionsInvalid: "required_sessions",
+};
+
+function failure(code: ErrorCode, status = 400, detail?: string) {
+  // En développement, la raison du refus apparaît dans le terminal de `pnpm dev`.
+  if (process.env.NODE_ENV !== "production")
+    console.warn(`[api/portal] ${status} ${code}${detail ? ` (${detail})` : ""}`);
+  const field = code === "invalidField" ? detail : errorFields[code];
+  return response({ error: texts.errors[code], code, field }, status);
+}
+function text(data: Record<string, unknown>, key: string, max = 160) {
+  const value = data[key];
+  if (typeof value !== "string" || !value.trim() || value.length > max)
+    throw new AppError("invalidField", 400, key);
+  return value.trim();
+}
+function email(data: Record<string, unknown>) {
+  const value = text(data, "email", 254).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+    throw new AppError("invalidEmail");
+  return value;
+}
+function phone(data: Record<string, unknown>) {
+  const value = text(data, "phone", 30);
+  // Formats internationaux usuels : chiffres, espaces, points, tirets, parenthèses, « + » initial.
+  if (!/^\+?[\d\s().-]{6,}$/.test(value) || value.replace(/\D/g, "").length < 6)
+    throw new AppError("invalidPhone");
+  return value;
+}
+function id(value: unknown) {
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 1)
+    throw new AppError("invalidField");
+  return number;
+}
+function appointmentType(value: unknown): AppointmentType {
+  if (typeof value !== "string" || !Object.hasOwn(types, value))
+    throw new AppError("invalidField");
+  return value as AppointmentType;
+}
+function meetingFormat(value: unknown): MeetingFormat {
+  const formats: readonly string[] = siteConfig.meetingFormats;
+  if (typeof value !== "string" || !formats.includes(value))
+    throw new AppError("formatUnavailable");
+  return value as MeetingFormat;
+}
+
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  try {
+    const user = await currentUser(request.cookies.get("session")?.value);
+    const action = params.get("action");
+    if (action === "slots") {
+      const type = appointmentType(params.get("type"));
+      if (type === "suivi" && user?.role !== "client")
+        return failure("clientRequired", 401);
+      return response({ slots: await availableSlots(type) });
+    }
+    if (action === "document") {
+      if (!user) return failure("loginRequired", 401);
+      const document = await getDocument(user, id(params.get("id")));
+      if (!document) return failure("documentNotFound", 404);
+      return new NextResponse(new Uint8Array(document.content), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": 'attachment; filename="document.pdf"',
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+    if (!user) return response({ user: null });
+    const admin = user.role === "admin";
+    const [appointments, documents, clients, slots, sessions] = await Promise.all([
+      listAppointments(user),
+      listDocuments(user),
+      admin ? listClients() : undefined,
+      admin ? listUpcomingSlots() : undefined,
+      admin ? undefined : completedSessions(user.id),
+    ]);
+    return response({
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        passwordTemporary: user.passwordTemporary,
+      },
+      appointments,
+      documents,
+      ...(admin ? { clients, slots } : { completedSessions: sessions }),
+    });
+  } catch (error) {
+    return handle(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  // Next peut normaliser nextUrl sur localhost : comparer à l’hôte reçu.
+  let sameOrigin = false;
+  try {
+    const parsed = new URL(origin || "");
+    sameOrigin =
+      ["http:", "https:"].includes(parsed.protocol) &&
+      parsed.host === request.headers.get("host");
+  } catch {}
+  if (!sameOrigin) return failure("originRefused", 403);
+  if (Number(request.headers.get("content-length") || 0) > 8_000_000)
+    return failure("tooLarge", 413);
+  try {
+    const user = await currentUser(request.cookies.get("session")?.value);
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      if (user?.role !== "admin") return failure("adminRequired", 403);
+      const form = await request.formData();
+      const file = form.get("file");
+      const title = String(form.get("title") || "").trim();
+      if (
+        !(file instanceof File) ||
+        file.size > 5_000_000 ||
+        !title ||
+        title.length > 160
+      )
+        throw new AppError("pdfInvalid");
+      const bytes = Buffer.from(await file.arrayBuffer());
+      if (bytes.subarray(0, 5).toString() !== "%PDF-")
+        throw new AppError("pdfInvalid");
+      const recipient = form.get("user_id") ? id(form.get("user_id")) : null;
+      // Séances réalisées nécessaires avant que le client puisse ouvrir le document.
+      const requiredSessions = Number(form.get("required_sessions") || 0);
+      if (
+        !Number.isSafeInteger(requiredSessions) ||
+        requiredSessions < 0 ||
+        requiredSessions > MAX_REQUIRED_SESSIONS
+      )
+        throw new AppError("sessionsInvalid", 400, `required_sessions=${form.get("required_sessions")}`);
+      await addDocument(title, bytes, recipient, requiredSessions);
+      return response({ ok: true });
+    }
+    const data = (await request.json()) as Record<string, unknown>;
+    if (data.action === "login")
+      return withSession(
+        await login(email(data), text(data, "password", 256)),
+      );
+    if (data.action === "logout") {
+      const token = request.cookies.get("session")?.value;
+      if (token) await logout(token);
+      const result = response({ ok: true });
+      result.cookies.delete("session");
+      return result;
+    }
+    if (data.action === "reserve") {
+      if (data.consent !== true) throw new AppError("consentRequired");
+      const appointment = await reserve({
+        type: appointmentType(data.type),
+        slotId: id(data.slot),
+        format: meetingFormat(data.format),
+        // Un client connecté réserve avec les informations de son compte.
+        firstName: user ? user.name : text(data, "firstName", 80),
+        lastName: user ? "" : text(data, "lastName", 80),
+        email: user ? user.email : email(data),
+        phone: phone(data),
+        intention: text(data, "intention", 1000),
+        user,
+      });
+      return response({
+        ok: true,
+        reference: appointment.id,
+        starts: appointment.starts.getTime(),
+      });
+    }
+    // Gestion de ses rendez-vous et de son profil par le client connecté.
+    if (
+      typeof data.action === "string" &&
+      ["cancel", "reschedule", "update-profile", "change-password"].includes(data.action)
+    ) {
+      if (user?.role !== "client") return failure("clientRequired", 401);
+      if (data.action === "cancel") {
+        await cancelAppointment(user, id(data.id));
+        return response({ ok: true });
+      }
+      if (data.action === "reschedule") {
+        const moved = await rescheduleAppointment(user, id(data.id), id(data.slot));
+        return response({ ok: true, starts: moved.starts.getTime() });
+      }
+      if (data.action === "update-profile") {
+        await updateProfile(user, text(data, "name"), phone(data));
+        return response({ ok: true });
+      }
+      const password = text(data, "password", 256);
+      if (password.length < 12) throw new AppError("passwordTooShort");
+      await changePassword(
+        user,
+        request.cookies.get("session")?.value ?? "",
+        text(data, "currentPassword", 256),
+        password,
+      );
+      return response({ ok: true });
+    }
+    if (user?.role !== "admin") return failure("adminRequired", 403);
+    // Les comptes clients sont créés par le gérant : le mot de passe provisoire
+    // n'est renvoyé qu'ici, une seule fois, pour qu'il le transmette au client.
+    if (data.action === "create-client") {
+      const password = await createClient(text(data, "name"), email(data), phone(data));
+      return response({ ok: true, password });
+    }
+    if (data.action === "reset-client-password") {
+      return response({ ok: true, password: await resetClientPassword(id(data.id)) });
+    }
+    if (data.action === "toggle-client") {
+      await toggleClient(id(data.id));
+    } else if (data.action === "add-slot") {
+      const starts = Number(data.starts);
+      const ends = Number(data.ends);
+      const minutes = Number(data.minutes) as SlotLength;
+      if (
+        !Number.isSafeInteger(starts) ||
+        !Number.isSafeInteger(ends) ||
+        !SLOT_LENGTHS.includes(minutes) ||
+        ends - starts < minutes * 60000 ||
+        ends - starts > 14 * 3600000
+      )
+        throw new AppError(
+          "slotInvalid",
+          400,
+          `starts=${data.starts} ends=${data.ends} minutes=${data.minutes}`,
+        );
+      if (starts <= Date.now()) throw new AppError("slotPast");
+      return response({
+        ok: true,
+        ...(await addSlotRange(new Date(starts), new Date(ends), minutes)),
+      });
+    } else if (data.action === "remove-slot") {
+      await removeSlot(id(data.id));
+    } else if (data.action === "complete") {
+      await toggleCompleted(id(data.id));
+    } else if (data.action === "remove-document") {
+      await removeDocument(id(data.id));
+    } else {
+      throw new AppError("unknownAction");
+    }
+    return response({ ok: true });
+  } catch (error) {
+    return handle(error);
+  }
+}
+
+function withSession(token: string) {
+  const result = response({ ok: true });
+  result.cookies.set("session", token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 28800,
+  });
+  return result;
+}
+
+function handle(error: unknown) {
+  if (error instanceof AppError)
+    return failure(error.code as ErrorCode, error.status, error.detail);
+  if (error instanceof SyntaxError) return failure("generic");
+  console.error(error);
+  return failure("generic", 500);
+}
