@@ -25,6 +25,19 @@ export const english: Texts = {
     },
     modes: { light: "Light", dark: "Dark" },
   },
+  calendar: {
+    add: "Add to my calendar",
+    google: "Google Calendar",
+    ics: "Apple, Outlook… (.ics file)",
+    fileName: "synego-appointment.ics",
+    clientTitle: "{type} with Youcef · Synégo",
+    clientDescription:
+      "{type} for {minutes} minutes ({format}). Youcef will share the meeting link before your appointment.\nTo cancel or reschedule at least 24 hours in advance: {url}",
+    adminTitle: "{type} · {name}",
+    adminDescription:
+      "{type} ({minutes} min, {format})\nEmail: {email}\nPhone: {phone}\nDetails in the admin space: {url}",
+    feedName: "Synégo · appointments",
+  },
   footer: { pages: "Pages", legal: "Legal information", legalNotice: "Legal notice", privacy: "Privacy", rights: "All rights reserved." },
   types: { vente: "Discovery call", audit: "Seminar consultation", suivi: "Follow-up session" },
   formats: { visio: "Video call", presentiel: "In person" },
@@ -182,6 +195,19 @@ export const english: Texts = {
       sendReply: "Send reply", replied: "Reply sent.", statusLabel: "Request status", saveStatus: "Update status",
       statusSaved: "Status updated.", close: "Close",
     },
+    agenda: {
+      title: "Calendar",
+      intro: "Find your appointments in Google Calendar or any other calendar app.",
+      feedTitle: "Subscription link",
+      feedText:
+        "In Google Calendar: “Other calendars” → “+” → “From URL”, then paste this link. Appointments appear there and update automatically (Google refreshes subscribed calendars every few hours). Keep this link private: it gives access to your appointments.",
+      feedMissing: "Subscription link is not configured: set CALENDAR_FEED_TOKEN (see README).",
+      copy: "Copy link",
+      copied: "Link copied",
+      googleOn:
+        "Google Calendar sync is active: every booking, reschedule, or cancellation is sent immediately.",
+      googleOff: "Direct Google Calendar sync is not configured (see README).",
+    },
     clientsTitle: "Client accounts",
     clientsIntro: "Clients can create their own account from the sign-in page. You can also create one for them: a temporary password is generated for you to share with the client, who can replace it under ‘My profile’. You can deactivate an account at any time.",
     noClients: "No client accounts yet.", createClientTitle: "Create a client account", createClient: "Create account",
@@ -264,13 +290,14 @@ export const english: Texts = {
       },
       {
         title: "Hosting and processors",
-        text: "Your data is never sold or used for advertising. Only two technical providers access it, on Youcef’s behalf:",
+        text: "Your data is never sold or used for advertising. Only the following technical providers access it, on Youcef’s behalf:",
         items: [
           "Vercel Inc. (United States): hosts and runs the website; your data passes through its servers with each request.",
           "Neon, Inc. (United States, Databricks group): hosts the database, stored in the European Union (Frankfurt).",
+          "Google LLC (United States), only if Youcef syncs appointments with Google Calendar: each appointment is sent with its type, date, your name, email address and phone number. “What brings you here” is never sent.",
         ],
       },
-      { title: "Transfers outside the European Union", text: "Vercel and Neon are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
+      { title: "Transfers outside the European Union", text: "Vercel, Neon and Google are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
       { title: "Cookies", text: "The website only uses strictly necessary cookies, which do not require your consent: the client area session cookie (secure, inaccessible to scripts, valid for eight hours) and the synego-locale cookie, which remembers your chosen language for one year. Your chosen display theme is stored only in your browser (local storage). No advertising or analytics cookies are used." },
       {
         title: "Retention periods",

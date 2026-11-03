@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 import { siteConfig } from "@/config/site";
 import type { Texts } from "@/content/texts";
 import { getDictionary } from "@/content/dictionaries";
 import { isLocale, LOCALE_COOKIE, negotiateLocale } from "@/lib/i18n";
+import { feedPath, googleSyncEnabled, siteUrl, syncAppointment } from "@/lib/agenda";
 import {
   addDocument,
   addSlotRange,
@@ -176,7 +177,9 @@ export async function GET(request: NextRequest) {
       appointments,
       documents,
       tickets,
-      ...(admin ? { clients, slots } : { completedSessions: sessions }),
+      ...(admin
+        ? { clients, slots, agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled() } }
+        : { completedSessions: sessions }),
     });
   } catch (error) {
     return handle(error, failure);
@@ -261,6 +264,7 @@ export async function POST(request: NextRequest) {
         intention: text(data, "intention", 1000),
         user,
       });
+      syncLater(request, appointment.id);
       return response({
         ok: true,
         reference: appointment.id,
@@ -283,11 +287,15 @@ export async function POST(request: NextRequest) {
     ) {
       if (user?.role !== "client") return failure("clientRequired", 401);
       if (data.action === "cancel") {
-        await cancelAppointment(user, id(data.id));
+        const appointmentId = id(data.id);
+        await cancelAppointment(user, appointmentId);
+        syncLater(request, appointmentId);
         return response({ ok: true });
       }
       if (data.action === "reschedule") {
-        const moved = await rescheduleAppointment(user, id(data.id), id(data.slot));
+        const appointmentId = id(data.id);
+        const moved = await rescheduleAppointment(user, appointmentId, id(data.slot));
+        syncLater(request, appointmentId);
         return response({ ok: true, starts: moved.starts.getTime() });
       }
       if (data.action === "update-profile") {
@@ -354,6 +362,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return handle(error, failure);
   }
+}
+
+// Reporte le rendez-vous dans Google Agenda après la réponse, sans la retarder.
+function syncLater(request: NextRequest, appointmentId: number) {
+  const url = siteUrl(request.nextUrl.origin);
+  after(() => syncAppointment(appointmentId, url));
 }
 
 function withSession(token: string) {
