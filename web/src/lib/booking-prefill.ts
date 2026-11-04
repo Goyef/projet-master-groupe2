@@ -2,6 +2,9 @@
 // Contrat partagé : clé sessionStorage `synego:booking-prefill`, valeur JSON
 // `{ "type"?: "vente" | "audit", "intention": string }`. Jamais dans l'URL : le texte peut être sensible.
 export const BOOKING_PREFILL_KEY = "synego:booking-prefill"
+// Événement émis sur `window` quand un préremplissage est déposé alors que le formulaire de
+// réservation est peut-être déjà affiché (assistant ouvert sur /rendez-vous) : il le relit aussitôt.
+export const BOOKING_PREFILL_EVENT = "synego:booking-prefill"
 
 // Longueur maximale du champ « Ce qui vous amène », vérifiée par l'API (action `reserve`).
 export const INTENTION_MAX_LENGTH = 1000
@@ -34,6 +37,13 @@ export function saveBookingPrefill(prefill: BookingPrefill) {
   } catch {
     return false
   }
+}
+
+// Prévient un formulaire déjà monté qu'un préremplissage l'attend.
+export function announceBookingPrefill() {
+  try {
+    window.dispatchEvent(new Event(BOOKING_PREFILL_EVENT))
+  } catch {}
 }
 
 // Lit puis supprime la valeur : le préremplissage ne sert qu'une fois.

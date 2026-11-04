@@ -52,6 +52,41 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Assistant : la mascotte salue quand son bouton apparaît et flotte doucement dans le panneau. */
+@theme {
+  --animate-assistant-wave: assistant-wave 1.6s ease-in-out 1.2s;
+  --animate-assistant-float: assistant-float 5s ease-in-out infinite;
+
+  @keyframes assistant-wave {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    15% {
+      transform: rotate(-10deg);
+    }
+    30% {
+      transform: rotate(8deg);
+    }
+    45% {
+      transform: rotate(-6deg);
+    }
+    60% {
+      transform: rotate(4deg);
+    }
+  }
+
+  @keyframes assistant-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+}
+
 /*
  * Palette du gérant
  * Bleu profond     #0A1D35  Pantone 296 C

@@ -26,7 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { siteConfig } from "@/config/site"
 import type { Texts } from "@/content/texts"
-import { INTENTION_MAX_LENGTH, takeBookingPrefill } from "@/lib/booking-prefill"
+import { BOOKING_PREFILL_EVENT, INTENTION_MAX_LENGTH, takeBookingPrefill } from "@/lib/booking-prefill"
 import { format } from "@/lib/format"
 
 import { AddToCalendar } from "./add-to-calendar"
@@ -83,9 +83,10 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked, wait
   // Au montage : lit une seule fois le préremplissage laissé dans sessionStorage, puis l'efface.
   // Lecture différée : le stockage n'existe pas au rendu serveur, et un montage annulé
   // (double montage du mode strict) ne doit pas consommer la valeur.
+  // Un préremplissage déposé pendant que le formulaire est affiché (assistant) est relu aussitôt.
   useEffect(() => {
     let active = true
-    queueMicrotask(() => {
+    const apply = () => {
       if (!active) return
       const prefill = takeBookingPrefill()
       if (!prefill) return
@@ -95,9 +96,12 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked, wait
         intentionField.current.value = prefill.intention
         setPrefilled(true)
       }
-    })
+    }
+    queueMicrotask(apply)
+    window.addEventListener(BOOKING_PREFILL_EVENT, apply)
     return () => {
       active = false
+      window.removeEventListener(BOOKING_PREFILL_EVENT, apply)
     }
   }, [client])
 
