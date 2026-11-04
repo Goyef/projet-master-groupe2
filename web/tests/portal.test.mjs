@@ -85,6 +85,36 @@ test(
     }
     const feedToken = randomBytes(24).toString("hex");
 
+    // Faux puwapi Send : vérifie la clé et garde les e-mails reçus, sans rien envoyer.
+    const sendKey = randomBytes(16).toString("hex");
+    const mails = [];
+    const send = createServer(async (req, res) => {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      if (req.method !== "POST" || req.url !== "/api/public/send/messages") {
+        res.writeHead(404);
+        return res.end();
+      }
+      if (req.headers["x-server-api-key"] !== sendKey) {
+        res.writeHead(401);
+        return res.end();
+      }
+      const mail = JSON.parse(body);
+      mails.push(mail);
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ id: mails.length }));
+    });
+    await new Promise((resolve) => send.listen(0, "127.0.0.1", resolve));
+    const sendUrl = `http://127.0.0.1:${send.address().port}/api/public/send/messages`;
+    const mailsTo = (address, subjectPart = "") =>
+      mails.filter((mail) => mail.to.includes(address) && mail.subject.includes(subjectPart));
+    // Attend un e-mail précis (envoyé après la réponse) et le renvoie.
+    async function mailTo(address, subjectPart) {
+      await eventually(() => mailsTo(address, subjectPart).length, `e-mail « ${subjectPart} » non reçu par ${address}`);
+      return mailsTo(address, subjectPart).at(-1);
+    }
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const server = spawn(
       process.execPath,
       [
@@ -111,6 +141,11 @@ test(
           GOOGLE_PRIVATE_KEY: privateKey,
           GOOGLE_CALENDAR_API_URL: googleUrl + "/calendar/v3",
           GOOGLE_TOKEN_URL: googleUrl + "/token",
+          // E-mails : vers le faux puwapi Send.
+          PUWAPI_SEND_API_KEY: sendKey,
+          PUWAPI_SEND_URL: sendUrl,
+          MAIL_FROM: "noreply@abdu.fr",
+          MAIL_FROM_NAME: "Youcef · Synégo",
           SITE_URL: "https://synego.example.test",
         },
         stdio: "pipe",
@@ -211,6 +246,11 @@ test(
       assert.equal(shortPassword.data.field, "password");
       const registered = await signUp();
       assert.equal(registered.response.status, 200);
+      const welcome = await mailTo("inscrit@example.test", "Bienvenue");
+      assert.equal(welcome.from, "noreply@abdu.fr");
+      assert.equal(welcome.fromName, "Youcef · Synégo");
+      assert.equal(welcome.replyTo, "gerant@example.test");
+      assert.ok(welcome.html.startsWith("<!doctype html>") && welcome.text.includes("Bonjour Inscrit,"));
       // L'inscription ouvre directement une session client, avec un mot de passe définitif.
       const registeredSession = registered.response.headers.get("set-cookie").split(";")[0];
       const registeredView = (await request("", registeredSession, "GET")).data.user;
@@ -250,6 +290,11 @@ test(
       assert.equal(created.response.headers.get("set-cookie"), null);
       assert.equal((await request(newClient("Alice"), admin)).response.status, 409);
       const createdBob = await request(newClient("Bob"), admin);
+      const aliceInvite = await mailTo("alice@example.test", "vous a ouvert un espace client");
+      assert.match(aliceInvite.text, /https:\/\/synego\.example\.test\/reinitialiser-mot-de-passe\?token=\S+/);
+      // Le mot de passe provisoire n'est jamais envoyé par e-mail.
+      assert.ok(!aliceInvite.text.includes(created.data.password));
+      const bobInvite = await mailTo("bob@example.test", "vous a ouvert un espace client");
       assert.notEqual(createdBob.data.password, created.data.password);
       const listed = (await request("", admin, "GET")).data.clients;
       assert.deepEqual(
@@ -345,9 +390,24 @@ test(
       assert.ok(!googleEvent.description.includes(prospect.intention));
       // Même demande renvoyée (double clic, réseau) : la réservation est confirmée à nouveau,
       // pas refusée comme « créneau déjà réservé ». Une autre personne reste refusée.
+      const confirmation = await mailTo("camille@example.test", "est confirmé");
+      assert.ok(confirmation.subject.startsWith("Votre rendez-vous du "));
+      assert.ok(confirmation.html.includes("https://calendar.google.com/calendar/render?"));
+      assert.ok(confirmation.text.includes("Ajouter à Google Agenda : https://calendar.google.com/"));
+      assert.ok(confirmation.text.includes("répondez simplement à cet e-mail"));
+      const adminNotice = await mailTo("gerant@example.test", "Nouveau rendez-vous · Appel découverte · Camille Martin");
+      assert.ok(adminNotice.text.includes(prospect.phone) && adminNotice.text.includes("Prospect (sans compte)"));
+      // Répondre à la notification écrit directement au client ; pas de signature « Youcef » au gérant.
+      assert.equal(adminNotice.replyTo, prospect.email);
+      assert.ok(!adminNotice.text.includes("À très bientôt"));
+      for (const mail of [confirmation, adminNotice])
+        assert.ok(!mail.html.includes(prospect.intention) && !mail.text.includes(prospect.intention));
       const repeatedProspect = await request({ ...prospect, slot: prospectSlot });
       assert.equal(repeatedProspect.response.status, 200);
       assert.equal(repeatedProspect.data.reference, booked.data.reference);
+      // Une demande reçue deux fois n'envoie pas une deuxième confirmation.
+      await pause(500);
+      assert.equal(mailsTo("camille@example.test", "est confirmé").length, 1);
       const otherProspect = await request({
         ...prospect,
         slot: prospectSlot,
@@ -595,6 +655,11 @@ test(
         (await request({ action: "cancel", id: aliceAppointment.id }, alice)).response.status,
         200,
       );
+      const movedMail = await mailTo("alice@example.test", "est déplacé");
+      assert.ok(movedMail.text.includes("Ancien créneau : "));
+      await mailTo("gerant@example.test", "Rendez-vous déplacé · Alice ·");
+      await mailTo("alice@example.test", "est annulé");
+      await mailTo("gerant@example.test", "Rendez-vous annulé · Alice ·");
       // L'annulation supprime l'événement Google.
       await eventually(
         () =>
@@ -804,6 +869,8 @@ test(
       );
       assert.equal(createdTicket.response.status, 200);
       const ticketId = createdTicket.data.reference;
+      const ticketNotice = await mailTo("gerant@example.test", "Nouvelle demande de support · Accès au document");
+      assert.ok(ticketNotice.text.includes("Je n'arrive pas à ouvrir le PDF partagé."));
       assert.equal(
         (
           await request(
@@ -863,7 +930,9 @@ test(
         ).response.status,
         200,
       );
-      const followed = (await request("", alice, "GET")).data.tickets[0];
+      const replyMail = await mailTo("alice@example.test", "Réponse à votre demande « Accès au document »");
+      assert.ok(replyMail.text.includes("> Le document a été partagé à nouveau."));
+      const followed = (await request("", alice, "GET")).data.tickets.find((ticket) => ticket.id === ticketId);
       assert.equal(followed.status, "in_progress");
       assert.deepEqual(
         followed.replies.map((reply) => reply.message),
@@ -883,6 +952,19 @@ test(
       );
       assert.equal(lateReply.response.status, 409);
       assert.equal(lateReply.data.code, "ticketClosed");
+      // Contenu saisi sur le site : échappé dans le HTML des e-mails.
+      assert.equal(
+        (
+          await request(
+            { action: "create-ticket", subject: "Balise <script>x</script>", message: "<b>gras</b>" },
+            alice,
+          )
+        ).response.status,
+        200,
+      );
+      const escaped = await mailTo("gerant@example.test", "Balise <script>");
+      assert.ok(!escaped.html.includes("<script>") && !escaped.html.includes("<b>gras</b>"));
+      assert.ok(escaped.html.includes("&lt;script&gt;") && escaped.html.includes("&lt;b&gt;gras&lt;/b&gt;"));
       // Parcours : un document se débloque après un nombre de séances réalisées.
       const bobId = clients.find((client) => client.email === "bob@example.test").id;
       const share = (title, requiredSessions) => {
@@ -1041,7 +1123,50 @@ test(
         200,
       );
       assert.equal((await request("", bobReset, "GET")).data.user, null);
+
+      // Mot de passe oublié : même réponse pour une adresse inconnue, sans e-mail.
+      const forgot = (address) => request({ action: "forgot-password", email: address });
+      assert.equal((await forgot("personne@example.test")).response.status, 200);
+      assert.equal((await forgot("pas-une-adresse")).response.status, 400);
+      assert.equal((await forgot("inscrit@example.test")).response.status, 200);
+      const resetMail = await mailTo("inscrit@example.test", "Réinitialisez votre mot de passe");
+      const resetToken = decodeURIComponent(resetMail.text.match(/token=(\S+)/)[1]);
+      await pause(300);
+      assert.equal(mailsTo("personne@example.test").length, 0);
+      // Trois demandes au plus par quart d'heure : la quatrième ne part pas (réponse identique).
+      for (let attempt = 0; attempt < 3; attempt++)
+        assert.equal((await forgot("inscrit@example.test")).response.status, 200);
+      await pause(500);
+      assert.equal(mailsTo("inscrit@example.test", "Réinitialisez").length, 3);
+      const resetWith = (token, newPassword) =>
+        request({ action: "reset-password", token, password: newPassword });
+      assert.equal((await resetWith(resetToken, "court")).response.status, 400);
+      assert.equal((await resetWith("jeton-inconnu", "un-mot-de-passe-solide")).data.code, "resetInvalid");
+      const chosen = randomBytes(12).toString("hex");
+      const resetDone = await resetWith(resetToken, chosen);
+      assert.equal(resetDone.response.status, 200);
+      // Connecté directement ; l'ancienne session et l'ancien mot de passe ne valent plus rien.
+      assert.equal(
+        (await request("", resetDone.response.headers.get("set-cookie").split(";")[0], "GET")).data.user.email,
+        "inscrit@example.test",
+      );
+      assert.equal((await request("", registeredSession, "GET")).data.user, null);
+      assert.equal((await request({ action: "login", email: "inscrit@example.test", password })).response.status, 401);
+      assert.equal(
+        (await request({ action: "login", email: "inscrit@example.test", password: chosen })).response.status,
+        200,
+      );
+      // Un lien ne sert qu'une fois.
+      assert.equal((await resetWith(resetToken, chosen)).data.code, "resetInvalid");
+      // Lien « choisir mon mot de passe » d'un compte créé par le gérant : valable pour Bob,
+      // refusé pour Alice dont le compte a été désactivé.
+      const tokenOf = (mail) => decodeURIComponent(mail.text.match(/token=(\S+)/)[1]);
+      assert.equal((await resetWith(tokenOf(bobInvite), chosen)).response.status, 200);
+      assert.equal((await resetWith(tokenOf(aliceInvite), chosen)).data.code, "resetInvalid");
+      // Tous les e-mails ont une version texte, et la clé n'apparaît dans aucun d'eux.
+      assert.ok(mails.every((mail) => mail.text && mail.html && !JSON.stringify(mail).includes(sendKey)));
     } finally {
+      send.close();
       google.close();
       server.kill();
       await new Promise((resolve) => server.once("exit", resolve));

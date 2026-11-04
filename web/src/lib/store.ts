@@ -19,6 +19,7 @@ import {
   documentRecipients,
   documents,
   loginAttempts,
+  passwordResets,
   sessions,
   slots,
   ticketReplies,
@@ -242,6 +243,7 @@ async function sameRequesterBooking(input: BookingInput, slotId: number) {
 }
 
 // Réserve un créneau. L'unicité de slot_id empêche deux réservations concurrentes.
+// `repeated` : la même demande avait déjà abouti (aucun nouvel e-mail ne doit partir).
 export async function reserve(input: BookingInput) {
   if (input.type === "suivi" && input.user?.role !== "client")
     throw new AppError("clientRequired", 401);
@@ -252,7 +254,7 @@ export async function reserve(input: BookingInput) {
     .where(and(eq(slots.id, input.slotId), freeSlot(types[input.type].minutes)));
   if (!slot) {
     const repeated = await sameRequesterBooking(input, input.slotId);
-    if (repeated) return repeated;
+    if (repeated) return { appointment: repeated, repeated: true };
     throw new AppError("slotTaken", 409);
   }
   try {
@@ -274,13 +276,13 @@ export async function reserve(input: BookingInput) {
         ),
       })
       .returning();
-    return created;
+    return { appointment: created, repeated: false };
   } catch (error) {
     // Seule la contrainte du créneau signifie « déjà réservé » ; toute autre erreur
     // (séquence d'identifiants désynchronisée, par exemple) doit rester visible dans les journaux.
     if (isUniqueViolation(error, SLOT_UNIQUE)) {
       const repeated = await sameRequesterBooking(input, slot.id);
-      if (repeated) return repeated;
+      if (repeated) return { appointment: repeated, repeated: true };
       throw new AppError("slotTaken", 409);
     }
     throw error;
@@ -379,7 +381,7 @@ export async function rescheduleAppointment(user: User, id: number, slotId: numb
       .where(stillChangeable(user, id))
       .returning({ starts: appointments.starts });
     if (!updated) throw new AppError("tooLateToChange", 409);
-    return updated;
+    return { starts: updated.starts, previousStarts: current.starts };
   } catch (error) {
     if (isUniqueViolation(error, SLOT_UNIQUE)) throw new AppError("slotTaken", 409);
     throw error;
@@ -630,15 +632,15 @@ export async function createClient(name: string, email: string, phone: string) {
   const database = await db();
   const password = temporaryPassword();
   try {
-    await database.insert(users).values({
+    const [account] = await database.insert(users).values({
       name,
       email,
       phone,
       password: hashPassword(password),
       passwordTemporary: true,
       role: "client",
-    });
-    return password;
+    }).returning({ id: users.id });
+    return { id: account.id, password };
   } catch (error) {
     if (isUniqueViolation(error)) throw new AppError("emailTaken", 409);
     throw error;
@@ -784,6 +786,79 @@ export async function setTicketStatus(id: number, status: TicketStatus) {
     .where(eq(tickets.id, id))
     .returning({ id: tickets.id });
   if (!updated.length) throw new AppError("ticketNotFound", 404);
+}
+
+// --- Mot de passe oublié -----------------------------------------------------
+
+export const RESET_LINK_MS = 3600_000;
+export const WELCOME_LINK_MS = 7 * 86400_000;
+const RESET_REQUESTS_MAX = 3;
+
+// Prépare un lien de réinitialisation (ou de premier mot de passe) ; renvoie le jeton en clair,
+// à mettre dans l'e-mail : seul son hash est conservé en base.
+export async function createPasswordResetToken(userId: number, validityMs = RESET_LINK_MS) {
+  const database = await db();
+  const token = randomBytes(32).toString("base64url");
+  await database
+    .delete(passwordResets)
+    .where(and(eq(passwordResets.userId, userId), lt(passwordResets.expires, new Date())));
+  await database.insert(passwordResets).values({
+    tokenHash: tokenHash(token),
+    userId,
+    expires: new Date(Date.now() + validityMs),
+  });
+  return token;
+}
+
+// Demande « mot de passe oublié ». Renvoie le compte et le jeton à envoyer, ou null : adresse
+// inconnue, compte désactivé ou trop de demandes. L'API répond pareil dans tous les cas,
+// pour ne pas révéler quelles adresses ont un compte.
+export async function requestPasswordReset(email: string) {
+  const database = await db();
+  const now = new Date();
+  const key = `reset:${email}`;
+  const [attempts] = await database
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.email, key));
+  if (attempts && attempts.expires > now && attempts.count >= RESET_REQUESTS_MAX) return null;
+  const expires = new Date(now.getTime() + ATTEMPT_WINDOW_MS);
+  await database
+    .insert(loginAttempts)
+    .values({ email: key, count: 1, expires })
+    .onConflictDoUpdate({
+      target: loginAttempts.email,
+      set: {
+        count: sql`CASE WHEN ${loginAttempts.expires} > ${now} THEN ${loginAttempts.count} + 1 ELSE 1 END`,
+        expires: sql`CASE WHEN ${loginAttempts.expires} > ${now} THEN ${loginAttempts.expires} ELSE ${expires} END`,
+      },
+    });
+  const [account] = await database
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(and(eq(users.email, email), eq(users.active, true)));
+  if (!account) return null;
+  return { account, token: await createPasswordResetToken(account.id) };
+}
+
+// Nouveau mot de passe choisi depuis le lien : le lien est consommé, les autres sessions
+// sont fermées, et une nouvelle session est ouverte.
+export async function resetPassword(token: string, password: string) {
+  const database = await db();
+  const [reset] = await database
+    .delete(passwordResets)
+    .where(and(eq(passwordResets.tokenHash, tokenHash(token)), gt(passwordResets.expires, new Date())))
+    .returning({ userId: passwordResets.userId });
+  if (!reset) throw new AppError("resetInvalid", 400);
+  const [account] = await database
+    .update(users)
+    .set({ password: hashPassword(password), passwordTemporary: false })
+    .where(and(eq(users.id, reset.userId), eq(users.active, true)))
+    .returning({ id: users.id });
+  if (!account) throw new AppError("resetInvalid", 400);
+  await database.delete(passwordResets).where(eq(passwordResets.userId, account.id));
+  await database.delete(sessions).where(eq(sessions.userId, account.id));
+  return createSession(account.id);
 }
 
 // --- Connexion -------------------------------------------------------------

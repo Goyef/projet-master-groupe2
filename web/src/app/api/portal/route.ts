@@ -3,8 +3,18 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { siteConfig } from "@/config/site";
 import type { Texts } from "@/content/texts";
 import { getDictionary } from "@/content/dictionaries";
-import { isLocale, LOCALE_COOKIE, negotiateLocale } from "@/lib/i18n";
+import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/lib/i18n";
 import { feedPath, googleSyncEnabled, siteUrl, syncAppointment } from "@/lib/agenda";
+import {
+  mailAccountCreated,
+  mailBookingCancelled,
+  mailBookingConfirmed,
+  mailBookingRescheduled,
+  mailPasswordReset,
+  mailTicketCreated,
+  mailTicketReply,
+  mailWelcome,
+} from "@/lib/mail/notifications";
 import {
   addDocument,
   addSlotRange,
@@ -29,6 +39,8 @@ import {
   removeSlot,
   registerClient,
   replyTicket,
+  requestPasswordReset,
+  resetPassword,
   rescheduleAppointment,
   resetClientPassword,
   reserve,
@@ -73,10 +85,15 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   sessionsInvalid: "required_sessions",
 };
 
-function failureFor(request: NextRequest) {
+// Langue de l'interface utilisée pour la requête (messages d'erreur et e-mails du visiteur).
+function requestLocale(request: NextRequest): Locale {
   const preference = request.cookies.get(LOCALE_COOKIE)?.value;
   const language = request.headers.get("accept-language");
-  const locale = language ? negotiateLocale(language) : isLocale(preference) ? preference : "fr";
+  return language ? negotiateLocale(language) : isLocale(preference) ? preference : "fr";
+}
+
+function failureFor(request: NextRequest) {
+  const locale = requestLocale(request);
   const { errors } = getDictionary(locale);
   // Les codes restent stables pour les clients API ; seul le message est traduit.
   return (code: ErrorCode, status = 400, detail?: string) => {
@@ -242,9 +259,21 @@ export async function POST(request: NextRequest) {
       if (data.consent !== true) throw new AppError("consentRequired");
       const password = text(data, "password", 256);
       if (password.length < 12) throw new AppError("passwordTooShort");
-      return withSession(
-        await registerClient(text(data, "name"), email(data), phone(data), password),
-      );
+      const account = { name: text(data, "name"), email: email(data) };
+      const session = await registerClient(account.name, account.email, phone(data), password);
+      mailLater(request, (locale, site) => mailWelcome(account, locale, site));
+      return withSession(session);
+    }
+    // Mot de passe oublié : même réponse que l'adresse ait un compte ou non.
+    if (data.action === "forgot-password") {
+      const reset = await requestPasswordReset(email(data));
+      if (reset) mailLater(request, (locale, site) => mailPasswordReset(reset.account, reset.token, locale, site));
+      return response({ ok: true });
+    }
+    if (data.action === "reset-password") {
+      const password = text(data, "password", 256);
+      if (password.length < 12) throw new AppError("passwordTooShort");
+      return withSession(await resetPassword(text(data, "token", 200), password));
     }
     if (data.action === "logout") {
       const token = request.cookies.get("session")?.value;
@@ -255,7 +284,7 @@ export async function POST(request: NextRequest) {
     }
     if (data.action === "reserve") {
       if (data.consent !== true) throw new AppError("consentRequired");
-      const appointment = await reserve({
+      const { appointment, repeated } = await reserve({
         type: appointmentType(data.type),
         slotId: id(data.slot),
         format: meetingFormat(data.format),
@@ -267,7 +296,11 @@ export async function POST(request: NextRequest) {
         intention: text(data, "intention", 1000),
         user,
       });
-      syncLater(request, appointment.id);
+      // Une demande reçue deux fois ne déclenche ni deuxième synchronisation ni deuxième e-mail.
+      if (!repeated) {
+        syncLater(request, appointment.id);
+        mailLater(request, (locale, site) => mailBookingConfirmed(appointment.id, locale, site));
+      }
       return response({
         ok: true,
         reference: appointment.id,
@@ -281,6 +314,7 @@ export async function POST(request: NextRequest) {
         text(data, "subject"),
         text(data, "message", 4000),
       );
+      mailLater(request, (_locale, site) => mailTicketCreated(ticket.id, site));
       return response({ ok: true, reference: ticket.id });
     }
     // Gestion de ses rendez-vous et de son profil par le client connecté.
@@ -293,12 +327,16 @@ export async function POST(request: NextRequest) {
         const appointmentId = id(data.id);
         await cancelAppointment(user, appointmentId);
         syncLater(request, appointmentId);
+        mailLater(request, (locale, site) => mailBookingCancelled(appointmentId, locale, site));
         return response({ ok: true });
       }
       if (data.action === "reschedule") {
         const appointmentId = id(data.id);
         const moved = await rescheduleAppointment(user, appointmentId, id(data.slot));
         syncLater(request, appointmentId);
+        mailLater(request, (locale, site) =>
+          mailBookingRescheduled(appointmentId, moved.previousStarts, locale, site),
+        );
         return response({ ok: true, starts: moved.starts.getTime() });
       }
       if (data.action === "update-profile") {
@@ -319,8 +357,10 @@ export async function POST(request: NextRequest) {
     // Les comptes clients sont créés par le gérant : le mot de passe provisoire
     // n'est renvoyé qu'ici, une seule fois, pour qu'il le transmette au client.
     if (data.action === "create-client") {
-      const password = await createClient(text(data, "name"), email(data), phone(data));
-      return response({ ok: true, password });
+      const created = await createClient(text(data, "name"), email(data), phone(data));
+      // Le client reçoit aussi un lien pour choisir lui-même son mot de passe.
+      mailLater(request, (locale, site) => mailAccountCreated(created.id, locale, site));
+      return response({ ok: true, password: created.password });
     }
     if (data.action === "reset-client-password") {
       return response({ ok: true, password: await resetClientPassword(id(data.id)) });
@@ -353,7 +393,10 @@ export async function POST(request: NextRequest) {
     } else if (data.action === "complete") {
       await toggleCompleted(id(data.id));
     } else if (data.action === "reply-ticket") {
-      await replyTicket(id(data.id), text(data, "message", 4000));
+      const ticketId = id(data.id);
+      const message = text(data, "message", 4000);
+      await replyTicket(ticketId, message);
+      mailLater(request, (_locale, site) => mailTicketReply(ticketId, message, site));
     } else if (data.action === "ticket-status") {
       await setTicketStatus(id(data.id), ticketStatus(data.status));
     } else if (data.action === "remove-document") {
@@ -371,6 +414,15 @@ export async function POST(request: NextRequest) {
 function syncLater(request: NextRequest, appointmentId: number) {
   const url = siteUrl(request.nextUrl.origin);
   after(() => syncAppointment(appointmentId, url));
+}
+
+// Envoie un e-mail après la réponse : le visiteur n'attend pas l'API d'envoi.
+function mailLater(request: NextRequest, send: (locale: Locale, site: string) => Promise<unknown>) {
+  const locale = requestLocale(request);
+  const site = siteUrl(request.nextUrl.origin);
+  after(() =>
+    send(locale, site).catch((error) => console.error("[mail] préparation impossible :", error)),
+  );
 }
 
 function withSession(token: string) {
