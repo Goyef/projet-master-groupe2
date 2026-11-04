@@ -42,11 +42,16 @@ type ActionProps = {
   portal: Portal
   // Boutons clairs sur fond foncé (carte « prochain rendez-vous »).
   inverted?: boolean
+  // Sur fond foncé, « Déplacer » passe en discret quand une autre action est principale.
+  quiet?: boolean
 }
 
 const CHANGE_NOTICE_MS = 24 * 3600_000
 
-function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inverted }: ActionProps) {
+// Bouton discret (ghost) lisible sur fond foncé.
+export const QUIET_ON_PRIMARY = "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+
+function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inverted, quiet }: ActionProps) {
   const formatDateTime = useDateFormatter()
   const localizedFetch = useLocalizedFetch()
   const [open, setOpen] = useState(false)
@@ -111,7 +116,15 @@ function RescheduleDialog({ appointment, dict, types, loadingLabel, portal, inve
         if (!next) setMessage(null)
       }}
     >
-      <DialogTrigger render={<Button size="sm" variant={inverted ? "secondary" : "outline"} />}>
+      <DialogTrigger
+        render={
+          inverted && quiet ? (
+            <Button size="sm" variant="ghost" className={QUIET_ON_PRIMARY} />
+          ) : (
+            <Button size="sm" variant={inverted ? "secondary" : "outline"} />
+          )
+        }
+      >
         <CalendarClockIcon data-icon="inline-start" />
         {dict.reschedule}
       </DialogTrigger>
@@ -160,7 +173,7 @@ function CancelDialog({ appointment, dict, types, portal, inverted }: ActionProp
           <Button
             size="sm"
             variant="ghost"
-            className={inverted ? "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" : ""}
+            className={inverted ? QUIET_ON_PRIMARY : ""}
           />
         }
       >
