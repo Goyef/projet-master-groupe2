@@ -64,6 +64,11 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
   const [booked, setBooked] = useState<{ id: number; type: string; format: string; starts: number; ends: number } | null>(
     null,
   )
+  // Client connecté : un créneau « complet » sélectionné l'inscrit en liste d'attente au lieu de le réserver.
+  const selected = slots.find((item) => String(item.id) === slot)
+  const joining = client && !!selected?.booked
+  // Dernière action réussie : réservation ou inscription en liste d'attente (titre du message).
+  const [joined, setJoined] = useState(false)
   const isInvalid = (field: string) => !!result && !result.ok && result.field === field
   const errorFor = (field: string) => isInvalid(field) && <FieldError>{result?.message}</FieldError>
 
@@ -73,7 +78,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
 
   useEffect(() => {
     const controller = new AbortController()
-    localizedFetch(`/api/portal?action=slots&type=${type}`, { signal: controller.signal })
+    localizedFetch(`/api/portal?action=slots&type=${type}${client ? "&waitlist=1" : ""}`, { signal: controller.signal })
       .then(async (response) => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error)
@@ -88,7 +93,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
         if (!controller.signal.aborted) setLoadedKey(requestKey)
       })
     return () => controller.abort()
-  }, [type, requestKey, dict.errors.network, localizedFetch])
+  }, [type, requestKey, client, dict.errors.network, localizedFetch])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -104,7 +109,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "reserve",
+          action: joining ? "join-waitlist" : "reserve",
           type,
           format: meetingFormat,
           slot: Number(slot),
@@ -121,6 +126,22 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
         setResult({ ok: false, message: data.error, field: data.field })
         return
       }
+      if (joining) {
+        setJoined(true)
+        setResult({
+          ok: true,
+          message: format(dict.form.waitlistSuccess, {
+            type: dict.types[type],
+            date: formatDateTime(data.starts),
+            position: data.position,
+          }),
+        })
+        form.reset()
+        setConsent(false)
+        onBooked?.()
+        return
+      }
+      setJoined(false)
       setResult({
         ok: true,
         message: format(dict.form.success, { type: dict.types[type], date: formatDateTime(data.starts) }),
@@ -213,7 +234,12 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
                 loading={loading}
                 loadingLabel={dict.form.loading}
                 emptyLabel={dict.form.noSlots}
+                labels={{ full: dict.form.fullBadge, waiting: dict.form.waitingBadge }}
               />
+              {client && slots.some((item) => item.booked) && (
+                <FieldDescription>{dict.form.waitlistHint}</FieldDescription>
+              )}
+              {selected?.waiting && <FieldDescription>{dict.form.alreadyWaitingNote}</FieldDescription>}
               {errorFor("slot")}
             </FieldSet>
 
@@ -327,17 +353,30 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
               </FieldLabel>
             </Field>
 
-            <Button type="submit" size="lg" className="h-11" disabled={busy || loading || !slot || !consent}>
-              {busy ? dict.form.submitting : dict.form.submit}
+            <Button
+              type="submit"
+              size="lg"
+              className="h-11"
+              disabled={busy || loading || !slot || !consent || !!selected?.waiting}
+            >
+              {joining
+                ? busy
+                  ? dict.form.joiningWaitlist
+                  : dict.form.joinWaitlist
+                : busy
+                  ? dict.form.submitting
+                  : dict.form.submit}
             </Button>
 
             {result && !result.field && (
               <Alert variant={result.ok ? "default" : "destructive"} role="status">
                 {result.ok ? <CircleCheckIcon /> : <CircleAlertIcon />}
-                {result.ok && <AlertTitle>{dict.form.successTitle}</AlertTitle>}
+                {result.ok && (
+                  <AlertTitle>{joined ? dict.form.waitlistSuccessTitle : dict.form.successTitle}</AlertTitle>
+                )}
                 <AlertDescription>
                   <p>{result.message}</p>
-                  {result.ok && booked && <AddToCalendar dict={dict.calendar} appointment={booked} />}
+                  {result.ok && !joined && booked && <AddToCalendar dict={dict.calendar} appointment={booked} />}
                 </AlertDescription>
               </Alert>
             )}

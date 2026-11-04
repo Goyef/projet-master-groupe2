@@ -23,6 +23,11 @@ import {
   AppError,
   availableSlots,
   cancelAppointment,
+  clientSlots,
+  joinWaitlist,
+  leaveWaitlist,
+  listWaitlist,
+  promoteWaitlist,
   changePassword,
   completedSessions,
   createClient,
@@ -86,6 +91,8 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   slotPast: "starts",
   slotInvalid: "ends",
   slotOverlap: "starts",
+  slotFreeNow: "slot",
+  alreadyWaiting: "slot",
   pdfInvalid: "file",
   sessionsInvalid: "required_sessions",
 };
@@ -165,6 +172,8 @@ export async function GET(request: NextRequest) {
       // Séances de suivi : visibles par les clients, et par le gérant (pour déplacer un rendez-vous).
       if (type === "suivi" && user?.role !== "client" && user?.role !== "admin")
         return failure("clientRequired", 401);
+      if (user?.role === "client" && params.get("waitlist") === "1")
+        return response({ slots: await clientSlots(type, user) });
       return response({ slots: await availableSlots(type) });
     }
     if (action === "document") {
@@ -190,6 +199,7 @@ export async function GET(request: NextRequest) {
       admin ? listUpcomingSlots() : undefined,
       admin ? undefined : completedSessions(user.id),
     ]);
+    const waitlist = admin ? undefined : await listWaitlist(user);
     return response({
       user: {
         name: user.name,
@@ -203,7 +213,7 @@ export async function GET(request: NextRequest) {
       tickets,
       ...(admin
         ? { clients, slots, agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled() } }
-        : { completedSessions: sessions }),
+        : { completedSessions: sessions, waitlist }),
     });
   } catch (error) {
     return handle(error, failure);
@@ -326,20 +336,40 @@ export async function POST(request: NextRequest) {
     // Gestion de ses rendez-vous et de son profil par le client connecté.
     if (
       typeof data.action === "string" &&
-      ["cancel", "reschedule", "update-profile", "change-password"].includes(data.action)
+      ["cancel", "reschedule", "update-profile", "change-password", "join-waitlist", "leave-waitlist"].includes(
+        data.action,
+      )
     ) {
       if (user?.role !== "client") return failure("clientRequired", 401);
+      if (data.action === "join-waitlist") {
+        if (data.consent !== true) throw new AppError("consentRequired");
+        const joined = await joinWaitlist(user, {
+          type: appointmentType(data.type),
+          slotId: id(data.slot),
+          format: meetingFormat(data.format),
+          phone: phone(data),
+          intention: text(data, "intention", 1000),
+          locale: requestLocale(request),
+        });
+        return response({ ok: true, starts: joined.starts.getTime(), position: joined.position });
+      }
+      if (data.action === "leave-waitlist") {
+        await leaveWaitlist(user, id(data.id));
+        return response({ ok: true });
+      }
       if (data.action === "cancel") {
         const appointmentId = id(data.id);
-        await cancelAppointment(user, appointmentId);
+        const { releasedSlotId } = await cancelAppointment(user, appointmentId);
         syncLater(request, appointmentId);
         mailLater(request, (locale, site) => mailBookingCancelled(appointmentId, locale, site));
+        await promoteLater(request, releasedSlotId);
         return response({ ok: true });
       }
       if (data.action === "reschedule") {
         const appointmentId = id(data.id);
         const moved = await rescheduleAppointment(user, appointmentId, id(data.slot));
         syncLater(request, appointmentId);
+        await promoteLater(request, moved.releasedSlotId);
         mailLater(request, (locale, site) =>
           mailBookingRescheduled(appointmentId, moved.previousStarts, locale, site),
         );
@@ -379,6 +409,7 @@ export async function POST(request: NextRequest) {
       if (data.action === "owner-reschedule") {
         const moved = await ownerRescheduleAppointment(appointmentId, id(data.slot));
         syncLater(request, appointmentId);
+        await promoteLater(request, moved.releasedSlotId);
         if (notify)
           mailLater(request, (_locale, site) => mailRescheduledByOwner(appointmentId, moved.previousStarts, site));
         return response({ ok: true, starts: moved.starts.getTime() });
@@ -388,6 +419,7 @@ export async function POST(request: NextRequest) {
           ? await ownerCancelAppointment(appointmentId)
           : await deleteAppointment(appointmentId);
       syncLater(request, appointmentId);
+      await promoteLater(request, row.releasedSlotId);
       // Seul un rendez-vous encore à venir et confirmé justifie de prévenir le client.
       const wasUpcoming =
         row.starts.getTime() > Date.now() && (data.action === "owner-cancel" || row.status === "confirmed");
@@ -443,6 +475,20 @@ export async function POST(request: NextRequest) {
 function syncLater(request: NextRequest, appointmentId: number) {
   const url = siteUrl(request.nextUrl.origin);
   after(() => syncAppointment(appointmentId, url));
+}
+
+// Créneau libéré : le premier inscrit en liste d'attente l'obtient tout de suite ; son e-mail
+// de confirmation (dans la langue choisie à l'inscription) et l'agenda suivent après la réponse.
+async function promoteLater(request: NextRequest, slotId: number | null | undefined) {
+  const promoted = await promoteWaitlist(slotId);
+  if (!promoted) return;
+  syncLater(request, promoted.appointment.id);
+  const site = siteUrl(request.nextUrl.origin);
+  after(() =>
+    mailBookingConfirmed(promoted.appointment.id, promoted.locale, site, "waitlistBooked").catch((error) =>
+      console.error("[mail] préparation impossible :", error),
+    ),
+  );
 }
 
 // Envoie un e-mail après la réponse : le visiteur n'attend pas l'API d'envoi.

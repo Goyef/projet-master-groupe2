@@ -57,6 +57,13 @@
       "when": 1793779828861,
       "tag": "0007_mots_de_passe_oublies",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793791451686,
+      "tag": "0008_liste_attente",
+      "breakpoints": true
     }
   ]
 }

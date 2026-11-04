@@ -8,6 +8,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 
 const bytea = customType<{ data: Buffer }>({
@@ -114,6 +115,37 @@ export const passwordResets = pgTable(
     expires: moment("expires").notNull(),
   },
   (table) => [index("password_resets_user_idx").on(table.userId)],
+);
+
+// Liste d'attente : un client connecté attend qu'un créneau déjà réservé se libère.
+// À la libération, le premier inscrit (created_at) obtient automatiquement le rendez-vous,
+// avec le type, le format, le téléphone et le message saisis lors de son inscription.
+export const waitlistEntries = pgTable(
+  "waitlist_entries",
+  {
+    id: serial("id").primaryKey(),
+    slotId: integer("slot_id")
+      .notNull()
+      .references(() => slots.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ["vente", "audit", "suivi"] }).notNull(),
+    format: text("format", { enum: ["visio", "presentiel"] })
+      .notNull()
+      .default("visio"),
+    phone: text("phone").notNull(),
+    intention: text("intention").notNull(),
+    // Langue de l'e-mail envoyé si le créneau lui est attribué.
+    locale: text("locale", { enum: ["fr", "en"] })
+      .notNull()
+      .default("fr"),
+    createdAt: moment("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("waitlist_entries_slot_user_unique").on(table.slotId, table.userId),
+    index("waitlist_entries_slot_idx").on(table.slotId, table.createdAt),
+  ],
 );
 
 export const loginAttempts = pgTable("login_attempts", {

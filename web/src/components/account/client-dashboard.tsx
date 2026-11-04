@@ -21,6 +21,7 @@ import { format } from "@/lib/format"
 
 import { AppointmentActions } from "./appointment-actions"
 import { ClientSupport } from "./support-tickets"
+import { WaitlistCard } from "./waitlist-card"
 import type { Appointment, Portal } from "./use-portal"
 
 type ClientDashboardProps = {
@@ -215,7 +216,10 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
           </Card>
         </TabsContent>
 
-        <TabsContent value="book" className="pt-4">
+        <TabsContent value="book" className="space-y-6 pt-4">
+          {!!data.waitlist?.length && (
+            <WaitlistCard text={text} types={types} entries={data.waitlist} portal={portal} />
+          )}
           <BookingForm
             dict={bookingDict}
             client

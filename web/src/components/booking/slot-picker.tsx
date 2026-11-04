@@ -8,8 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { TIME_ZONE } from "@/lib/format"
 import { intlLocales } from "@/lib/i18n"
 import { useLocale } from "@/components/i18n/locale-provider"
+import { cn } from "@/lib/utils"
 
-export type Slot = { id: number; starts: number }
+// `booked` : créneau déjà réservé par quelqu'un d'autre (liste d'attente) ; `waiting` : déjà inscrit.
+export type Slot = { id: number; starts: number; booked?: boolean; waiting?: boolean }
 
 type SlotPickerProps = {
   slots: Slot[]
@@ -20,6 +22,8 @@ type SlotPickerProps = {
   emptyLabel: string
   // Préfixe des identifiants : plusieurs sélecteurs peuvent coexister sur la page.
   idPrefix?: string
+  // Libellés des créneaux réservés (liste d'attente), requis seulement s'il y en a.
+  labels?: { full: string; waiting: string }
 }
 
 // Créneaux regroupés par jour (heure de Paris), un bouton radio par horaire.
@@ -31,6 +35,7 @@ export function SlotPicker({
   loadingLabel,
   emptyLabel,
   idPrefix = "slot",
+  labels,
 }: SlotPickerProps) {
   const locale = useLocale()
   const days = useMemo(() => {
@@ -72,9 +77,13 @@ export function SlotPicker({
               <FieldLabel
                 key={item.id}
                 htmlFor={`${idPrefix}-${item.id}`}
-                className="has-data-checked:bg-primary has-data-checked:text-primary-foreground"
+                className={cn(
+                  "has-data-checked:bg-primary has-data-checked:text-primary-foreground",
+                  // Créneau complet : contour en pointillés, sélectionnable pour la liste d'attente.
+                  item.booked && "border-dashed text-muted-foreground",
+                )}
               >
-                <Field orientation="horizontal" className="justify-center">
+                <Field orientation="horizontal" className="flex-col items-center justify-center gap-0.5">
                   <RadioGroupItem value={String(item.id)} id={`${idPrefix}-${item.id}`} className="sr-only" />
                   <FieldTitle>
                     {new Date(item.starts).toLocaleTimeString(intlLocales[locale], {
@@ -83,6 +92,9 @@ export function SlotPicker({
                       minute: "2-digit",
                     })}
                   </FieldTitle>
+                  {item.booked && labels && (
+                    <span className="text-[0.7rem] leading-none">{item.waiting ? labels.waiting : labels.full}</span>
+                  )}
                 </Field>
               </FieldLabel>
             ))}

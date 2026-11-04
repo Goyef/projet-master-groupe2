@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { format, TIME_ZONE } from "@/lib/format"
 
-type ScheduledSlot = { id: number; starts: number; ends: number; appointment_id: number | null }
+// `waitlist` : clients en liste d'attente sur ce créneau réservé, dans l'ordre d'inscription.
+type ScheduledSlot = { id: number; starts: number; ends: number; appointment_id: number | null; waitlist?: string[] }
 
 type SlotScheduleProps = {
   slots: ScheduledSlot[]
   busy: boolean
   onRemove: (id: number) => void
-  labels: { booked: string; removeSlot: string; slotCount: string }
+  labels: { booked: string; removeSlot: string; slotCount: string; waitlistCount: string }
 }
 
 const time = (value: number) =>
@@ -52,9 +53,15 @@ export function SlotSchedule({ slots, busy, onRemove, labels }: SlotScheduleProp
               return (
                 <li key={slot.id}>
                   {slot.appointment_id ? (
-                    <Badge variant="secondary" className="h-7">
-                      {time(slot.starts)} · {labels.booked}
-                    </Badge>
+                    <div className="space-y-1">
+                      <Badge variant="secondary" className="h-7">
+                        {time(slot.starts)} · {labels.booked}
+                        {!!slot.waitlist?.length && ` · ${format(labels.waitlistCount, { count: slot.waitlist.length })}`}
+                      </Badge>
+                      {!!slot.waitlist?.length && (
+                        <p className="max-w-48 text-xs text-muted-foreground">{slot.waitlist.join(", ")}</p>
+                      )}
+                    </div>
                   ) : (
                     <Button
                       size="sm"

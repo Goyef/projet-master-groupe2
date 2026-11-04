@@ -113,12 +113,18 @@ async function notifyAdmin(
   );
 }
 
-export async function mailBookingConfirmed(appointmentId: number, locale: Locale, site: string) {
+// `variant` : « waitlistBooked » quand le créneau a été attribué depuis la liste d'attente.
+export async function mailBookingConfirmed(
+  appointmentId: number,
+  locale: Locale,
+  site: string,
+  variant: "bookingConfirmed" | "waitlistBooked" = "bookingConfirmed",
+) {
   const row = await loadAppointment(appointmentId);
   if (!row) return;
   const dict = getDictionary(locale).emails;
   const details = appointmentDetails(row, locale);
-  const copy = dict.bookingConfirmed;
+  const copy = dict[variant];
   await send(
     row.email,
     locale,

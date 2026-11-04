@@ -272,7 +272,12 @@ export function AdminDashboard({ dict, types, formats, loadingLabel, portal }: A
                   slots={data.slots}
                   busy={busy}
                   onRemove={(id) => act({ action: "remove-slot", id }, { scope: "slots" })}
-                  labels={{ booked: dict.booked, removeSlot: dict.removeSlot, slotCount: dict.slotCount }}
+                  labels={{
+                    booked: dict.booked,
+                    removeSlot: dict.removeSlot,
+                    slotCount: dict.slotCount,
+                    waitlistCount: dict.waitlistCount,
+                  }}
                 />
               )}
             </CardContent>

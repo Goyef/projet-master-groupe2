@@ -52,6 +52,9 @@ export type Client = {
   // Le client n'a pas encore remplacé le mot de passe provisoire généré par le gérant.
   passwordTemporary: boolean
 }
+// Inscription du client en liste d'attente ; `position` : rang dans la file (1 = prochain servi).
+export type WaitlistEntry = { id: number; type: keyof Texts["types"]; starts: number; ends: number; position: number }
+
 export type PortalData = {
   user: {
     name: string
@@ -72,9 +75,11 @@ export type PortalData = {
     unlocked: boolean
   }[]
   completedSessions?: number
+  waitlist?: WaitlistEntry[]
   tickets?: Ticket[]
   clients?: Client[]
-  slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
+  // `waitlist` : noms des clients en attente, dans l'ordre d'inscription.
+  slots?: { id: number; starts: number; ends: number; appointment_id: number | null; waitlist: string[] }[]
   // Gérant : lien d'abonnement à l'agenda (null s'il n'est pas configuré) et synchronisation Google.
   agenda?: { feedPath: string | null; googleSync: boolean }
 }

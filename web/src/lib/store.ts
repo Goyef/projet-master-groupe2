@@ -25,6 +25,7 @@ import {
   ticketReplies,
   tickets,
   users,
+  waitlistEntries,
 } from "@/db/schema";
 
 export const types = {
@@ -289,6 +290,206 @@ export async function reserve(input: BookingInput) {
   }
 }
 
+// --- Liste d'attente ---------------------------------------------------------
+// Un client connecté peut attendre qu'un créneau déjà réservé se libère. Les règles de
+// réservation restent les mêmes (créneau à venir, assez long pour le type de rendez-vous).
+// À la libération, le premier inscrit obtient automatiquement le rendez-vous.
+
+const WAITLIST_UNIQUE = "waitlist_entries_slot_user_unique";
+
+// Sous-requêtes écrites avec des noms de table explicites : dans une requête sur une seule table,
+// Drizzle n'écrit pas le nom de la table devant les colonnes, et Postgres rattacherait alors
+// « id » ou « slot_id » à la table de la sous-requête au lieu de la requête principale.
+
+// Créneau réservé par une autre personne que le client.
+const bookedByOther = (user: User) =>
+  sql`EXISTS (SELECT 1 FROM appointments AS a WHERE a.slot_id = "slots"."id" AND a.user_id IS DISTINCT FROM ${user.id})`;
+
+// Créneaux visibles par un client : libres (réservables) et réservés par d'autres (liste d'attente).
+export async function clientSlots(type: AppointmentType, user: User) {
+  const database = await db();
+  const minutes = types[type].minutes;
+  const rows = await database
+    .select({
+      id: slots.id,
+      starts: slots.starts,
+      ends: slots.ends,
+      booked: sql<boolean>`EXISTS (SELECT 1 FROM appointments AS a WHERE a.slot_id = "slots"."id")`,
+      waiting: sql<boolean>`EXISTS (SELECT 1 FROM waitlist_entries AS w WHERE w.slot_id = "slots"."id" AND w.user_id = ${user.id})`,
+    })
+    .from(slots)
+    .where(
+      and(
+        gt(slots.starts, new Date()),
+        sql`${slots.ends} - ${slots.starts} >= make_interval(mins => ${minutes})`,
+        // Son propre rendez-vous n'est pas proposé : il apparaît déjà dans « Mes rendez-vous ».
+        sql`NOT EXISTS (SELECT 1 FROM appointments AS a WHERE a.slot_id = "slots"."id" AND a.user_id = ${user.id})`,
+      ),
+    )
+    .orderBy(asc(slots.starts))
+    .limit(100);
+  return rows.map((row) => ({
+    id: row.id,
+    starts: row.starts.getTime(),
+    ends: row.ends.getTime(),
+    booked: row.booked,
+    waiting: row.waiting,
+  }));
+}
+
+export type WaitlistInput = {
+  type: AppointmentType;
+  slotId: number;
+  format: MeetingFormat;
+  phone: string;
+  intention: string;
+  locale: "fr" | "en";
+};
+
+// Inscrit le client sur la liste d'attente d'un créneau réservé ; renvoie sa position.
+export async function joinWaitlist(user: User, input: WaitlistInput) {
+  const database = await db();
+  const minutes = types[input.type].minutes;
+  const [slot] = await database
+    .select({ id: slots.id, starts: slots.starts, ends: slots.ends, booked: bookedByOther(user) })
+    .from(slots)
+    .where(
+      and(
+        eq(slots.id, input.slotId),
+        gt(slots.starts, new Date()),
+        sql`${slots.ends} - ${slots.starts} >= make_interval(mins => ${minutes})`,
+      ),
+    );
+  if (!slot) throw new AppError("slotTaken", 409);
+  // Créneau redevenu libre entre-temps : le client peut le réserver directement.
+  if (!slot.booked) throw new AppError("slotFreeNow", 409);
+  try {
+    await database.insert(waitlistEntries).values({
+      slotId: slot.id,
+      userId: user.id,
+      type: input.type,
+      format: input.format,
+      phone: input.phone,
+      intention: input.intention,
+      locale: input.locale,
+    });
+  } catch (error) {
+    if (isUniqueViolation(error, WAITLIST_UNIQUE)) throw new AppError("alreadyWaiting", 409);
+    throw error;
+  }
+  return { starts: slot.starts, position: await waitlistPosition(slot.id, user.id) };
+}
+
+async function waitlistPosition(slotId: number, userId: number) {
+  const database = await db();
+  const [row] = await database
+    .select({
+      position: sql<number>`(SELECT count(*)::int FROM waitlist_entries AS other WHERE other.slot_id = "waitlist_entries"."slot_id" AND other.created_at <= "waitlist_entries"."created_at")`,
+    })
+    .from(waitlistEntries)
+    .where(and(eq(waitlistEntries.slotId, slotId), eq(waitlistEntries.userId, userId)));
+  return row?.position ?? 0;
+}
+
+export async function leaveWaitlist(user: User, id: number) {
+  const database = await db();
+  const removed = await database
+    .delete(waitlistEntries)
+    .where(and(eq(waitlistEntries.id, id), eq(waitlistEntries.userId, user.id)))
+    .returning({ id: waitlistEntries.id });
+  if (!removed.length) throw new AppError("waitlistNotFound", 404);
+}
+
+// Inscriptions à venir du client, avec sa position dans chaque file.
+export async function listWaitlist(user: User) {
+  const database = await db();
+  const rows = await database
+    .select({
+      id: waitlistEntries.id,
+      type: waitlistEntries.type,
+      starts: slots.starts,
+      ends: slots.ends,
+      position: sql<number>`(SELECT count(*)::int FROM waitlist_entries AS other WHERE other.slot_id = "waitlist_entries"."slot_id" AND other.created_at <= "waitlist_entries"."created_at")`,
+    })
+    .from(waitlistEntries)
+    .innerJoin(slots, eq(slots.id, waitlistEntries.slotId))
+    .where(and(eq(waitlistEntries.userId, user.id), gt(slots.starts, new Date())))
+    .orderBy(asc(slots.starts));
+  return rows.map((row) => ({ ...row, starts: row.starts.getTime(), ends: row.ends.getTime() }));
+}
+
+async function waitlistNames(slotIds: number[]) {
+  const names = new Map<number, string[]>();
+  if (!slotIds.length) return names;
+  const database = await db();
+  const rows = await database
+    .select({ slotId: waitlistEntries.slotId, name: users.name })
+    .from(waitlistEntries)
+    .innerJoin(users, eq(users.id, waitlistEntries.userId))
+    .where(inArray(waitlistEntries.slotId, slotIds))
+    .orderBy(asc(waitlistEntries.createdAt));
+  for (const row of rows) names.set(row.slotId, [...(names.get(row.slotId) ?? []), row.name]);
+  return names;
+}
+
+// Créneau libéré : attribue le rendez-vous au premier inscrit encore éligible
+// (compte actif, créneau à venir et assez long). Les inscriptions inéligibles sont retirées.
+// Renvoie le rendez-vous créé et la langue de l'e-mail, ou null si personne ne l'obtient.
+export async function promoteWaitlist(slotId: number | null | undefined) {
+  if (!slotId) return null;
+  const database = await db();
+  const entries = await database
+    .select({
+      entry: waitlistEntries,
+      user: { id: users.id, name: users.name, email: users.email, active: users.active },
+      slot: { starts: slots.starts, ends: slots.ends },
+    })
+    .from(waitlistEntries)
+    .innerJoin(users, eq(users.id, waitlistEntries.userId))
+    .innerJoin(slots, eq(slots.id, waitlistEntries.slotId))
+    .where(eq(waitlistEntries.slotId, slotId))
+    .orderBy(asc(waitlistEntries.createdAt));
+  for (const { entry, user, slot } of entries) {
+    const minutes = types[entry.type].minutes;
+    const eligible =
+      user.active &&
+      slot.starts.getTime() > Date.now() &&
+      slot.ends.getTime() - slot.starts.getTime() >= minutes * 60_000;
+    if (!eligible) {
+      await database.delete(waitlistEntries).where(eq(waitlistEntries.id, entry.id));
+      continue;
+    }
+    try {
+      const appointment = await database.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(appointments)
+          .values({
+            slotId,
+            userId: user.id,
+            type: entry.type,
+            format: entry.format,
+            firstName: user.name,
+            lastName: "",
+            email: user.email,
+            phone: entry.phone,
+            intention: entry.intention,
+            starts: slot.starts,
+            ends: new Date(slot.starts.getTime() + minutes * 60_000),
+          })
+          .returning();
+        await tx.delete(waitlistEntries).where(eq(waitlistEntries.id, entry.id));
+        return created;
+      });
+      return { appointment, locale: entry.locale };
+    } catch (error) {
+      // Quelqu'un a réservé le créneau entre-temps : les autres inscrits restent en attente.
+      if (isUniqueViolation(error, SLOT_UNIQUE)) return null;
+      throw error;
+    }
+  }
+  return null;
+}
+
 // --- Espace connecté -------------------------------------------------------
 
 // Délai minimal pour annuler ou déplacer un rendez-vous depuis l'espace client.
@@ -350,7 +551,7 @@ const stillChangeable = (user: User, id: number) =>
 
 // Annule le rendez-vous et libère son créneau pour une autre réservation.
 export async function cancelAppointment(user: User, id: number) {
-  await changeableAppointment(user, id);
+  const current = await changeableAppointment(user, id);
   const database = await db();
   const updated = await database
     .update(appointments)
@@ -358,6 +559,7 @@ export async function cancelAppointment(user: User, id: number) {
     .where(stillChangeable(user, id))
     .returning({ id: appointments.id });
   if (!updated.length) throw new AppError("tooLateToChange", 409);
+  return { releasedSlotId: current.slotId };
 }
 
 // Déplace le rendez-vous vers un autre créneau libre ; l'ancien créneau redevient disponible.
@@ -383,7 +585,7 @@ export async function rescheduleAppointment(user: User, id: number, slotId: numb
       .where(stillChangeable(user, id))
       .returning({ starts: appointments.starts });
     if (!updated) throw new AppError("tooLateToChange", 409);
-    return { starts: updated.starts, previousStarts: current.starts };
+    return { starts: updated.starts, previousStarts: current.starts, releasedSlotId: current.slotId };
   } catch (error) {
     if (isUniqueViolation(error, SLOT_UNIQUE)) throw new AppError("slotTaken", 409);
     throw error;
@@ -525,10 +727,12 @@ export async function listUpcomingSlots() {
     .leftJoin(appointments, eq(appointments.slotId, slots.id))
     .where(gt(slots.starts, new Date()))
     .orderBy(asc(slots.starts));
+  const waiting = await waitlistNames(rows.map((row) => row.id));
   return rows.map((row) => ({
     ...row,
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
+    waitlist: waiting.get(row.id) ?? [],
   }));
 }
 
@@ -591,7 +795,7 @@ async function confirmedAppointment(id: number) {
 
 // Annule le rendez-vous et libère son créneau ; renvoie le rendez-vous (pour l'e-mail du client).
 export async function ownerCancelAppointment(id: number) {
-  await confirmedAppointment(id);
+  const current = await confirmedAppointment(id);
   const database = await db();
   const [cancelled] = await database
     .update(appointments)
@@ -599,7 +803,7 @@ export async function ownerCancelAppointment(id: number) {
     .where(and(eq(appointments.id, id), eq(appointments.status, "confirmed")))
     .returning();
   if (!cancelled) throw new AppError("alreadyCancelled", 409);
-  return cancelled;
+  return { ...cancelled, releasedSlotId: current.slotId };
 }
 
 // Déplace le rendez-vous vers un autre créneau libre et à venir ; l'ancien redevient disponible.
@@ -625,7 +829,7 @@ export async function ownerRescheduleAppointment(id: number, slotId: number) {
       .where(and(eq(appointments.id, id), eq(appointments.status, "confirmed")))
       .returning({ starts: appointments.starts });
     if (!updated) throw new AppError("alreadyCancelled", 409);
-    return { starts: updated.starts, previousStarts: current.starts };
+    return { starts: updated.starts, previousStarts: current.starts, releasedSlotId: current.slotId };
   } catch (error) {
     if (isUniqueViolation(error, SLOT_UNIQUE)) throw new AppError("slotTaken", 409);
     throw error;
@@ -637,7 +841,7 @@ export async function deleteAppointment(id: number) {
   const database = await db();
   const [deleted] = await database.delete(appointments).where(eq(appointments.id, id)).returning();
   if (!deleted) throw new AppError("appointmentNotFound", 404);
-  return deleted;
+  return { ...deleted, releasedSlotId: deleted.slotId };
 }
 
 export async function toggleCompleted(id: number) {

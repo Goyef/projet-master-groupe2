@@ -761,6 +761,93 @@ test(
       );
       assert.equal(tooSoon.response.status, 409);
       assert.equal(tooSoon.data.code, "slotTooSoon");
+      // Liste d'attente : un client voit les créneaux complets, s'y inscrit et obtient
+      // automatiquement le créneau quand il se libère.
+      const waitDay = new Date(Date.now() + 10 * 86400000);
+      waitDay.setUTCHours(8, 0, 0, 0);
+      const waitStart = waitDay.getTime();
+      assert.equal(
+        (
+          await request(
+            { action: "add-slot", starts: waitStart, ends: waitStart + 2 * 3600000, minutes: 60 },
+            admin,
+          )
+        ).response.status,
+        200,
+      );
+      const waitSlots = (await request("?action=slots&type=suivi&waitlist=1", bob, "GET")).data.slots.filter(
+        (item) => item.starts >= waitStart && item.starts < waitStart + 2 * 3600000,
+      );
+      assert.equal(waitSlots.length, 2);
+      const [fullSlot, freeSlot] = waitSlots;
+      const followUp = (slotId, extra = {}) => ({
+        action: "reserve",
+        type: "suivi",
+        format: "visio",
+        slot: slotId,
+        phone: "06 00 00 00 00",
+        intention: "Séance de suivi.",
+        consent: true,
+        ...extra,
+      });
+      assert.equal((await request(followUp(fullSlot.id), alice)).response.status, 200);
+      const bobWaitView = (await request("?action=slots&type=suivi&waitlist=1", bob, "GET")).data.slots;
+      assert.deepEqual(
+        bobWaitView.filter((item) => item.id === fullSlot.id).map((item) => [item.booked, item.waiting]),
+        [[true, false]],
+      );
+      // Sans connexion, ou pour celle qui l'a réservé, le créneau complet n'est pas proposé.
+      assert.ok(
+        !(await request("?action=slots&type=audit&waitlist=1", "", "GET")).data.slots.some(
+          (item) => item.id === fullSlot.id,
+        ),
+      );
+      assert.ok(
+        !(await request("?action=slots&type=suivi&waitlist=1", alice, "GET")).data.slots.some(
+          (item) => item.id === fullSlot.id,
+        ),
+      );
+      const join = (slotId) => request({ ...followUp(slotId), action: "join-waitlist" }, bob);
+      assert.equal((await request({ ...followUp(fullSlot.id), action: "join-waitlist" })).response.status, 401);
+      const freeJoin = await join(freeSlot.id);
+      assert.deepEqual([freeJoin.response.status, freeJoin.data.code], [409, "slotFreeNow"]);
+      const joined = await join(fullSlot.id);
+      assert.deepEqual([joined.response.status, joined.data.position], [200, 1]);
+      const joinedTwice = await join(fullSlot.id);
+      assert.deepEqual([joinedTwice.response.status, joinedTwice.data.code], [409, "alreadyWaiting"]);
+      assert.deepEqual(
+        (await request("?action=slots&type=suivi&waitlist=1", bob, "GET")).data.slots
+          .filter((item) => item.id === fullSlot.id)
+          .map((item) => item.waiting),
+        [true],
+      );
+      assert.deepEqual(
+        (await request("", bob, "GET")).data.waitlist.map((item) => [item.position, item.type]),
+        [[1, "suivi"]],
+      );
+      assert.equal(
+        (await request("", admin, "GET")).data.slots.find((item) => item.id === fullSlot.id).waitlist.length,
+        1,
+      );
+      // Alice annule : le créneau passe directement à Bob, qui reçoit un e-mail.
+      const aliceFull = (await request("", alice, "GET")).data.appointments.find(
+        (item) => item.status === "confirmed" && item.starts === fullSlot.starts,
+      );
+      assert.equal((await request({ action: "cancel", id: aliceFull.id }, alice)).response.status, 200);
+      const bobAfter = (await request("", bob, "GET")).data;
+      assert.ok(
+        bobAfter.appointments.some(
+          (item) => item.status === "confirmed" && item.type === "suivi" && item.starts === fullSlot.starts,
+        ),
+      );
+      assert.equal(bobAfter.waitlist.length, 0);
+      assert.ok(
+        !(await request("?action=slots&type=suivi&waitlist=1", alice, "GET")).data.slots.some(
+          (item) => item.id === fullSlot.id && !item.booked,
+        ),
+      );
+      await mailTo("bob@example.test", "Un créneau s’est libéré");
+      assert.equal((await request({ action: "leave-waitlist", id: 999999 }, bob)).response.status, 404);
       // Profil : nom et téléphone modifiables par le client.
       const badPhone = await request(
         { action: "update-profile", name: "Alice Martin", phone: "abc" },
