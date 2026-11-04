@@ -8,6 +8,7 @@ import {
   MailIcon,
   PhoneIcon,
   Trash2Icon,
+  VideoIcon,
   XCircleIcon,
 } from "lucide-react"
 
@@ -176,6 +177,25 @@ export function AppointmentSheet({ appointment, onClose, dict, types, formats, l
                       <li className="text-sm text-muted-foreground">{item.client ? text.profileClient : text.profileProspect}</li>
                     </ul>
                   </section>
+
+                  {item.format === "visio" && item.status === "confirmed" && (
+                    <section className="space-y-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">{text.meet}</h3>
+                      {item.meetUrl ? (
+                        <Button
+                          variant="link"
+                          className="h-auto max-w-full px-0"
+                          render={<a href={item.meetUrl} target="_blank" rel="noopener noreferrer" />}
+                          nativeButton={false}
+                        >
+                          <VideoIcon data-icon="inline-start" />
+                          <span className="truncate">{item.meetUrl.replace(/^https:\/\//, "")}</span>
+                        </Button>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{text.meetPending}</p>
+                      )}
+                    </section>
+                  )}
 
                   {item.intention && (
                     <section className="space-y-2">

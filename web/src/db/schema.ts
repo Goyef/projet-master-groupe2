@@ -70,6 +70,8 @@ export const appointments = pgTable(
       .notNull()
       .default("confirmed"),
     cancelledAt: moment("cancelled_at"),
+    // Lien Google Meet créé avec l'événement Google Agenda (visio, synchronisation OAuth).
+    meetUrl: text("meet_url"),
     createdAt: moment("created_at").notNull().defaultNow(),
   },
   (table) => [index("appointments_starts_idx").on(table.starts)],

@@ -3,7 +3,7 @@
 import { useDateFormatter } from "@/components/i18n/locale-provider"
 
 import { useState } from "react"
-import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon } from "lucide-react"
+import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon, VideoIcon } from "lucide-react"
 
 import { AddToCalendar } from "@/components/booking/add-to-calendar"
 import { BookingForm, type BookingFormProps } from "@/components/booking/booking-form"
@@ -79,7 +79,21 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
     format: formats[item.format],
     starts: item.starts,
     ends: item.ends,
+    meetUrl: item.meetUrl,
   })
+  // Lien Google Meet de la visio, ouvert dans un nouvel onglet (même taille que « Ajouter à mon agenda »).
+  const joinMeet = (item: Appointment, variant: "secondary" | "outline") =>
+    item.meetUrl ? (
+      <Button
+        variant={variant}
+        size="sm"
+        render={<a href={item.meetUrl} target="_blank" rel="noopener noreferrer" />}
+        nativeButton={false}
+      >
+        <VideoIcon data-icon="inline-start" />
+        {text.joinMeet}
+      </Button>
+    ) : null
   const duration = (item: Appointment) => `${Math.round((item.ends - item.starts) / 60000)} ${bookingDict.minutes}`
 
   return (
@@ -130,6 +144,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                 {types[next.type]} · {duration(next)} · {formats[next.format]}
               </p>
               <div className="flex flex-wrap items-center gap-2">
+                {joinMeet(next, "secondary")}
                 <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(next)} variant="secondary" />
                 {next.changeable ? (
                   <AppointmentActions appointment={next} {...actionProps} inverted />
@@ -199,6 +214,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {statusOf(item)}
+                        {filter === "upcoming" && joinMeet(item, "outline")}
                         {filter === "upcoming" && (
                           <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(item)} />
                         )}

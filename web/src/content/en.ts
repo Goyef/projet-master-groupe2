@@ -31,7 +31,9 @@ export const english: Texts = {
     fileName: "synego-appointment.ics",
     clientTitle: "{type} with Youcef · Synégo",
     clientDescription:
-      "{type} for {minutes} minutes ({format}). Youcef will share the meeting link before your appointment.\nTo cancel or reschedule at least 24 hours in advance: {url}",
+      "{type} for {minutes} minutes ({format}). {visio}\nTo cancel or reschedule at least 24 hours in advance: {url}",
+    meetLine: "Google Meet video call: {meet}",
+    meetPending: "Youcef will share the meeting link before your appointment.",
     adminTitle: "{type} · {name}",
     adminDescription:
       "{type} ({minutes} min, {format})\nEmail: {email}\nPhone: {phone}\nDetails in the admin space: {url}",
@@ -161,6 +163,7 @@ export const english: Texts = {
       emptyUpcoming: "No upcoming appointments.", emptyPast: "No past appointments.", emptyCancelled: "No cancelled appointments.",
       changeNotice: "You can cancel or reschedule an appointment up to 24 hours before it starts.",
       tooLate: "Your appointment is less than 24 hours away. Please contact Youcef to cancel or reschedule.",
+      joinMeet: "Join the video call",
       reschedule: "Reschedule", cancel: "Cancel", cancelTitle: "Cancel this appointment?",
       cancelText: "{type} on {date}. The time slot will be released and can be booked by someone else.",
       cancelConfirm: "Yes, cancel", cancelKeep: "Keep appointment", cancelling: "Cancelling…",
@@ -208,6 +211,7 @@ export const english: Texts = {
       filterUpcoming: "Upcoming", filterPast: "Past", filterCancelled: "Cancelled", filterAll: "All",
       search: "Search by name, email or phone…", empty: "No appointments.", open: "Open",
       detailsTitle: "Appointment", contact: "Contact", intention: "What brings them", profileClient: "Client (account)", profileProspect: "Prospect (no account)",
+      meet: "Google Meet video call", meetPending: "The Google Meet link will appear here once the event is created in Google Calendar.",
       move: "Reschedule", moveTitle: "Choose a new time slot", moveEmpty: "No free slot of this length. Add availability first.",
       moveConfirm: "Move to this slot", moved: "Appointment moved to {date}.",
       cancel: "Cancel appointment", cancelTitle: "Cancel this appointment?", cancelText: "{type} with {name}, {date}. The slot will become available again.",
@@ -227,6 +231,8 @@ export const english: Texts = {
       googleOn:
         "Google Calendar sync is active: every booking, reschedule, or cancellation is sent immediately.",
       googleOff: "Direct Google Calendar sync is not configured (see README).",
+      googleMeetOn: "A Google Meet link is created for every video session and sent to the client.",
+      googleMeetOff: "No automatic Google Meet link: connect Youcef’s Google account (OAuth, see README).",
       // Simulated Calendly connection for the demo: no data is sent to Calendly.
       calendly: {
         title: "Calendly",
@@ -289,6 +295,8 @@ export const english: Texts = {
     labelName: "Name", labelEmail: "Email", labelPhone: "Phone", labelProfile: "Profile",
     profileClient: "Client (account)", profileProspect: "Prospect (no account)", minutes: "{minutes} minutes",
     visioNote: "Youcef will send you the video call link before the appointment.",
+    joinMeet: "Join the video call (Google Meet)",
+    meetNote: "This link stays valid if the appointment is rescheduled. Join a few minutes early: Youcef will let you in.",
     addToCalendar: "Add to Google Calendar", openClientArea: "Go to my client area", openAdminArea: "Open the owner area",
     bookingConfirmed: {
       subject: "Your appointment on {date} is confirmed", title: "Your appointment is confirmed",
@@ -417,7 +425,7 @@ export const english: Texts = {
         items: [
           "Vercel Inc. (United States): hosts and runs the website; your data passes through its servers with each request.",
           "Neon, Inc. (United States, Databricks group): hosts the database, stored in the European Union (Frankfurt).",
-          "Google LLC (United States), only if Youcef syncs appointments with Google Calendar: each appointment is sent with its type, date, your name, email address and phone number. “What brings you here” is never sent.",
+          "Google LLC (United States), only if Youcef syncs appointments with Google Calendar: each appointment is sent with its type, date, your name, email address and phone number. “What brings you here” is never sent. For a video session, Google creates the session’s Google Meet link; the video call itself runs on Google Meet.",
           "Resend, Inc. (United States): sends the website’s emails (appointment confirmation, rescheduling or cancellation, forgotten password, welcome, support replies). It receives your email address and the content of these messages; “What brings you here” is never included.",
         ],
       },

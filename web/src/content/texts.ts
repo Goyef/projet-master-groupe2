@@ -48,7 +48,10 @@ export const texts = {
     // Événement ajouté par le client dans son propre agenda.
     clientTitle: "{type} avec Youcef · Synégo",
     clientDescription:
-      "{type} de {minutes} minutes ({format}). Youcef vous communique le lien avant le rendez-vous.\nPour annuler ou déplacer, au moins 24 h avant : {url}",
+      "{type} de {minutes} minutes ({format}). {visio}\nPour annuler ou déplacer, au moins 24 h avant : {url}",
+    // {visio} de la description : lien Google Meet s'il existe, sinon cette phrase.
+    meetLine: "Visio Google Meet : {meet}",
+    meetPending: "Youcef vous communique le lien avant le rendez-vous.",
     // Événement côté gérant (synchronisation Google Agenda et flux d'abonnement).
     adminTitle: "{type} · {name}",
     adminDescription: "{type} ({minutes} min, {format})\nE-mail : {email}\nTéléphone : {phone}\nDétails dans l’espace gérant : {url}",
@@ -311,6 +314,7 @@ export const texts = {
       emptyCancelled: "Aucun rendez-vous annulé.",
       changeNotice: "Vous pouvez annuler ou déplacer un rendez-vous jusqu’à 24 h avant son début.",
       tooLate: "Moins de 24 h avant le rendez-vous : prévenez Youcef pour l’annuler ou le déplacer.",
+      joinMeet: "Rejoindre la visio",
       reschedule: "Déplacer",
       cancel: "Annuler",
       cancelTitle: "Annuler ce rendez-vous ?",
@@ -427,6 +431,8 @@ export const texts = {
       intention: "Ce qui l’amène",
       profileClient: "Client (compte)",
       profileProspect: "Prospect (sans compte)",
+      meet: "Visio Google Meet",
+      meetPending: "Le lien Google Meet apparaîtra ici une fois l’événement créé dans Google Agenda.",
       move: "Déplacer",
       moveTitle: "Choisir un nouveau créneau",
       moveEmpty: "Aucun créneau libre de cette durée. Ajoutez des disponibilités.",
@@ -456,6 +462,8 @@ export const texts = {
       copied: "Lien copié",
       googleOn: "Synchronisation Google Agenda active : chaque réservation, déplacement ou annulation est reporté immédiatement.",
       googleOff: "Synchronisation directe avec Google Agenda non configurée (voir le README).",
+      googleMeetOn: "Un lien Google Meet est créé pour chaque visio et envoyé au client.",
+      googleMeetOff: "Pas de lien Google Meet automatique : connectez le compte Google de Youcef (OAuth, voir le README).",
       // Connexion Calendly simulée pour la démonstration : aucune donnée n'est envoyée à Calendly.
       calendly: {
         title: "Calendly",
@@ -553,6 +561,8 @@ export const texts = {
     profileProspect: "Prospect (sans compte)",
     minutes: "{minutes} minutes",
     visioNote: "Youcef vous communiquera le lien de visioconférence avant le rendez-vous.",
+    joinMeet: "Rejoindre la visio (Google Meet)",
+    meetNote: "Ce lien reste valable si le rendez-vous est déplacé. Connectez-vous quelques minutes avant l’heure : Youcef vous fera entrer.",
     addToCalendar: "Ajouter à Google Agenda",
     openClientArea: "Accéder à mon espace",
     openAdminArea: "Ouvrir l’espace gérant",
@@ -752,7 +762,7 @@ export const texts = {
         items: [
           "Vercel Inc. (États-Unis) : héberge et exécute le site ; vos données transitent par ses serveurs à chaque requête.",
           "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
-          "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis.",
+          "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis. Pour une visio, Google crée le lien Google Meet de la séance ; la visioconférence elle-même passe par Google Meet.",
           "Resend, Inc. (États-Unis) : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
         ],
       },

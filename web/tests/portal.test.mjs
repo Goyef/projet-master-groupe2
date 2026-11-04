@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import pg from "pg";
 
@@ -25,33 +25,38 @@ test(
     const port = Number(process.env.TEST_PORT) || 43127,
       origin = `http://127.0.0.1:${port}`;
 
-    // Faux Google (jeton OAuth et API Agenda) : vérifie la signature du compte de service
-    // et garde les événements en mémoire, pour tester la synchronisation sans vraies clés.
-    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-      modulusLength: 2048,
-      privateKeyEncoding: { type: "pkcs8", format: "pem" },
-      publicKeyEncoding: { type: "spki", format: "pem" },
-    });
+    // Faux Google (jeton OAuth et API Agenda) : vérifie le jeton de rafraîchissement du compte
+    // de Youcef et garde les événements en mémoire, pour tester la synchronisation sans vraies clés.
+    // Il crée aussi les visioconférences Google Meet (la première en différé, « pending »).
+    const oauth = {
+      clientId: "client-test.apps.googleusercontent.com",
+      clientSecret: "secret-" + randomBytes(8).toString("hex"),
+      refreshToken: "1//rafraichissement-" + randomBytes(8).toString("hex"),
+    };
     const calendarId = "agenda-test@group.calendar.google.com";
     const googleEvents = new Map();
     const googleCalls = [];
+    let meetCount = 0;
     const google = createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) body += chunk;
       const url = new URL(req.url, "http://127.0.0.1");
-      googleCalls.push({ method: req.method, path: decodeURIComponent(url.pathname) });
+      const conferenceVersion = url.searchParams.get("conferenceDataVersion");
+      googleCalls.push({ method: req.method, path: decodeURIComponent(url.pathname), conferenceVersion });
       const reply = (status, data) => {
         res.writeHead(status, { "Content-Type": "application/json" });
         res.end(data === undefined ? "" : JSON.stringify(data));
       };
       if (url.pathname === "/token") {
-        const [header, claims, signature] = new URLSearchParams(body).get("assertion").split(".");
-        const valid = createVerify("RSA-SHA256")
-          .update(`${header}.${claims}`)
-          .verify(publicKey, Buffer.from(signature, "base64url"));
+        const form = new URLSearchParams(body);
+        const valid =
+          form.get("grant_type") === "refresh_token" &&
+          form.get("client_id") === oauth.clientId &&
+          form.get("client_secret") === oauth.clientSecret &&
+          form.get("refresh_token") === oauth.refreshToken;
         return valid
           ? reply(200, { access_token: "jeton-test", expires_in: 3600 })
-          : reply(401, { error: "invalid_grant" });
+          : reply(400, { error: "invalid_grant" });
       }
       if (req.headers.authorization !== "Bearer jeton-test") return reply(401);
       const match = decodeURIComponent(url.pathname).match(
@@ -59,15 +64,38 @@ test(
       );
       if (!match || match[1] !== calendarId) return reply(404);
       const eventId = match[2];
-      if (req.method === "POST") {
-        const event = JSON.parse(body);
+      // Comme Google : sans conferenceDataVersion=1, la visioconférence existante est conservée
+      // et une demande de création est ignorée.
+      const save = (incoming, previous) => {
+        const event = { ...incoming };
+        delete event.conferenceData;
+        let pending = false;
+        if (previous?.hangoutLink) {
+          event.hangoutLink = previous.hangoutLink;
+          event.conferenceData = previous.conferenceData;
+        } else if (conferenceVersion === "1" && incoming.conferenceData?.createRequest) {
+          const request = incoming.conferenceData.createRequest;
+          assert.equal(request.conferenceSolutionKey.type, "hangoutsMeet");
+          meetCount += 1;
+          const link = `https://meet.google.com/abc-defg-${String(meetCount).padStart(3, "0")}`;
+          event.hangoutLink = link;
+          event.conferenceData = {
+            createRequest: { requestId: request.requestId, status: { statusCode: "success" } },
+            entryPoints: [{ entryPointType: "video", uri: link }],
+          };
+          pending = meetCount === 1;
+        }
         googleEvents.set(event.id, event);
-        return reply(200, event);
-      }
+        // Création différée : la première réponse n'a pas encore le lien.
+        return pending
+          ? { ...event, hangoutLink: undefined, conferenceData: { createRequest: { status: { statusCode: "pending" } } } }
+          : event;
+      };
+      if (req.method === "GET") return googleEvents.has(eventId) ? reply(200, googleEvents.get(eventId)) : reply(404);
+      if (req.method === "POST") return reply(200, save(JSON.parse(body)));
       if (req.method === "PUT") {
         if (!googleEvents.has(eventId)) return reply(404);
-        googleEvents.set(eventId, JSON.parse(body));
-        return reply(200, JSON.parse(body));
+        return reply(200, save(JSON.parse(body), googleEvents.get(eventId)));
       }
       if (req.method === "DELETE") return reply(googleEvents.delete(eventId) ? 204 : 410);
       return reply(405);
@@ -78,7 +106,7 @@ test(
     // La synchronisation a lieu après la réponse : on attend qu'elle arrive.
     async function eventually(check, label) {
       for (let attempt = 0; attempt < 50; attempt++) {
-        if (check()) return;
+        if (await check()) return;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       assert.fail(label + "\n" + logs);
@@ -140,8 +168,9 @@ test(
           // Agenda : lien d'abonnement et synchronisation vers le faux Google.
           CALENDAR_FEED_TOKEN: feedToken,
           GOOGLE_CALENDAR_ID: calendarId,
-          GOOGLE_SERVICE_ACCOUNT_EMAIL: "synego@projet-test.iam.gserviceaccount.com",
-          GOOGLE_PRIVATE_KEY: privateKey,
+          GOOGLE_OAUTH_CLIENT_ID: oauth.clientId,
+          GOOGLE_OAUTH_CLIENT_SECRET: oauth.clientSecret,
+          GOOGLE_OAUTH_REFRESH_TOKEN: oauth.refreshToken,
           GOOGLE_CALENDAR_API_URL: googleUrl + "/calendar/v3",
           GOOGLE_TOKEN_URL: googleUrl + "/token",
           // E-mails : vers le faux Resend.
@@ -398,6 +427,15 @@ test(
       assert.ok(googleEvent.description.includes(prospect.phone));
       assert.ok(googleEvent.description.includes("https://synego.example.test/connexion"));
       assert.ok(!googleEvent.description.includes(prospect.intention));
+      // Visio : Google crée un lien Meet (ici en différé), enregistré avec le rendez-vous.
+      assert.equal(googleEvent.conferenceData.createRequest.requestId, "synego-" + prospectEvent);
+      const prospectMeet = googleEvent.hangoutLink;
+      assert.match(prospectMeet, /^https:\/\/meet\.google\.com\//);
+      // La première visioconférence créée était « pending » : l'événement a été relu.
+      await eventually(
+        () => googleCalls.some((call) => call.method === "GET" && call.path.includes("/events/rdv")),
+        "lien Meet en attente non relu",
+      );
       // Même demande renvoyée (double clic, réseau) : la réservation est confirmée à nouveau,
       // pas refusée comme « créneau déjà réservé ». Une autre personne reste refusée.
       const confirmation = await mailTo("camille@example.test", "est confirmé");
@@ -405,6 +443,14 @@ test(
       assert.ok(confirmation.html.includes("https://calendar.google.com/calendar/render?"));
       assert.ok(confirmation.text.includes("Ajouter à Google Agenda : https://calendar.google.com/"));
       assert.ok(confirmation.text.includes("contactez Youcef au moins 24 h avant"));
+      // L'e-mail part après la synchronisation : il contient le lien Meet.
+      assert.ok(confirmation.text.includes(`Rejoindre la visio (Google Meet) : ${prospectMeet}`));
+      assert.ok(confirmation.html.includes(`href="${prospectMeet}"`));
+      assert.ok(!confirmation.text.includes("Youcef vous communiquera le lien"));
+      assert.equal(
+        (await request("", admin, "GET")).data.appointments.find((item) => item.id === booked.data.reference).meetUrl,
+        prospectMeet,
+      );
       assert.ok(!confirmation.text.includes("répondez"));
       const adminNotice = await mailTo("gerant@example.test", "Nouveau rendez-vous · Appel découverte · Camille Martin");
       assert.ok(adminNotice.text.includes(prospect.phone) && adminNotice.text.includes("Prospect (sans compte)"));
@@ -617,6 +663,15 @@ test(
       );
       assert.equal(aliceAppointment.status, "confirmed");
       assert.equal(aliceAppointment.changeable, true);
+      // Le lien Meet est créé après la réponse : il apparaît ensuite dans l'espace client.
+      let aliceMeet = null;
+      await eventually(async () => {
+        aliceMeet = (await request("", alice, "GET")).data.appointments.find(
+          (item) => item.id === aliceAppointment.id,
+        ).meetUrl;
+        return aliceMeet !== null;
+      }, "lien Meet absent de l'espace client");
+      assert.match(aliceMeet, /^https:\/\/meet\.google\.com\//);
       assert.equal(
         (await request({ action: "cancel", id: aliceAppointment.id }, bob)).response.status,
         404,
@@ -651,12 +706,25 @@ test(
       );
       assert.equal(moved.response.status, 200);
       assert.equal(moved.data.starts, otherSlot.starts);
-      // Le déplacement est reporté dans Google Agenda.
+      // Le déplacement est reporté dans Google Agenda, avec le même lien Meet.
       const aliceEvent = googleEventId(aliceAppointment.id);
       await eventually(
         () =>
           googleEvents.get(aliceEvent)?.start.dateTime === new Date(otherSlot.starts).toISOString(),
         "déplacement non reporté dans Google",
+      );
+      assert.equal(googleEvents.get(aliceEvent).hangoutLink, aliceMeet);
+      assert.equal(googleEvents.get(aliceEvent).location, aliceMeet);
+      assert.ok(
+        googleCalls
+          .filter((call) => call.method === "PUT" && call.path.endsWith(aliceEvent))
+          .slice(1)
+          .every((call) => call.conferenceVersion === null),
+        "un déplacement ne doit pas redemander de visioconférence",
+      );
+      assert.equal(
+        (await request("", alice, "GET")).data.appointments.find((item) => item.id === aliceAppointment.id).meetUrl,
+        aliceMeet,
       );
       // L'ancien créneau redevient réservable.
       assert.ok(
@@ -670,6 +738,7 @@ test(
       );
       const movedMail = await mailTo("alice@example.test", "est déplacé");
       assert.ok(movedMail.text.includes("Ancien créneau : "));
+      assert.ok(movedMail.text.includes(`Rejoindre la visio (Google Meet) : ${aliceMeet}`));
       await mailTo("gerant@example.test", "Rendez-vous déplacé · Alice ·");
       await mailTo("alice@example.test", "est annulé");
       await mailTo("gerant@example.test", "Rendez-vous annulé · Alice ·");
@@ -692,7 +761,7 @@ test(
       assert.ok(!ics.includes(prospect.intention));
       assert.ok(!ics.includes(`UID:rendez-vous-${aliceAppointment.id}@synego`));
       const agenda = (await request("", admin, "GET")).data.agenda;
-      assert.deepEqual(agenda, { feedPath: "/api/agenda/" + feedToken, googleSync: true });
+      assert.deepEqual(agenda, { feedPath: "/api/agenda/" + feedToken, googleSync: true, googleMeet: true });
       assert.equal((await request("", alice, "GET")).data.agenda, undefined);
       const cancelledTwice = await request({ action: "cancel", id: aliceAppointment.id }, alice);
       assert.equal(cancelledTwice.response.status, 409);
@@ -705,7 +774,7 @@ test(
       const afterCancel = (await request("", alice, "GET")).data.appointments.find(
         (item) => item.id === aliceAppointment.id,
       );
-      assert.deepEqual([afterCancel.status, afterCancel.changeable], ["cancelled", false]);
+      assert.deepEqual([afterCancel.status, afterCancel.changeable, afterCancel.meetUrl], ["cancelled", false, null]);
       assert.equal(
         (await request("", admin, "GET")).data.appointments.find(
           (item) => item.id === aliceAppointment.id,

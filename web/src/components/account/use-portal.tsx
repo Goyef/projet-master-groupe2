@@ -23,6 +23,8 @@ export type Appointment = {
   past: boolean
   starts: number
   ends: number
+  // Lien Google Meet de la visio (null tant qu'il n'a pas été créé).
+  meetUrl: string | null
   // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
   client?: boolean
   // Le client peut encore l'annuler ou le déplacer (plus de 24 h avant).
@@ -76,7 +78,7 @@ export type PortalData = {
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
   // Gérant : lien d'abonnement à l'agenda (null s'il n'est pas configuré) et synchronisation Google.
-  agenda?: { feedPath: string | null; googleSync: boolean }
+  agenda?: { feedPath: string | null; googleSync: boolean; googleMeet: boolean }
 }
 
 // `scope` : carte où afficher le message (à côté du formulaire utilisé) ; absent = haut de page.

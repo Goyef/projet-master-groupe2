@@ -4,7 +4,7 @@ import { siteConfig } from "@/config/site";
 import type { Texts } from "@/content/texts";
 import { getDictionary } from "@/content/dictionaries";
 import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/lib/i18n";
-import { feedPath, googleSyncEnabled, siteUrl, syncAppointment } from "@/lib/agenda";
+import { feedPath, googleMeetEnabled, googleSyncEnabled, siteUrl, syncAppointment } from "@/lib/agenda";
 import {
   mailAccountCreated,
   mailBookingCancelled,
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
       documents,
       tickets,
       ...(admin
-        ? { clients, slots, agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled() } }
+        ? { clients, slots, agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled(), googleMeet: googleMeetEnabled() } }
         : { completedSessions: sessions }),
     });
   } catch (error) {
@@ -304,8 +304,7 @@ export async function POST(request: NextRequest) {
       });
       // Une demande reçue deux fois ne déclenche ni deuxième synchronisation ni deuxième e-mail.
       if (!repeated) {
-        syncLater(request, appointment.id);
-        mailLater(request, (locale, site) => mailBookingConfirmed(appointment.id, locale, site));
+        syncLater(request, appointment.id, (locale, site) => mailBookingConfirmed(appointment.id, locale, site));
       }
       return response({
         ok: true,
@@ -332,15 +331,13 @@ export async function POST(request: NextRequest) {
       if (data.action === "cancel") {
         const appointmentId = id(data.id);
         await cancelAppointment(user, appointmentId);
-        syncLater(request, appointmentId);
-        mailLater(request, (locale, site) => mailBookingCancelled(appointmentId, locale, site));
+        syncLater(request, appointmentId, (locale, site) => mailBookingCancelled(appointmentId, locale, site));
         return response({ ok: true });
       }
       if (data.action === "reschedule") {
         const appointmentId = id(data.id);
         const moved = await rescheduleAppointment(user, appointmentId, id(data.slot));
-        syncLater(request, appointmentId);
-        mailLater(request, (locale, site) =>
+        syncLater(request, appointmentId, (locale, site) =>
           mailBookingRescheduled(appointmentId, moved.previousStarts, locale, site),
         );
         return response({ ok: true, starts: moved.starts.getTime() });
@@ -378,9 +375,11 @@ export async function POST(request: NextRequest) {
       const notify = data.notify !== false;
       if (data.action === "owner-reschedule") {
         const moved = await ownerRescheduleAppointment(appointmentId, id(data.slot));
-        syncLater(request, appointmentId);
-        if (notify)
-          mailLater(request, (_locale, site) => mailRescheduledByOwner(appointmentId, moved.previousStarts, site));
+        syncLater(
+          request,
+          appointmentId,
+          notify ? (_locale, site) => mailRescheduledByOwner(appointmentId, moved.previousStarts, site) : undefined,
+        );
         return response({ ok: true, starts: moved.starts.getTime() });
       }
       const row =
@@ -439,10 +438,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Reporte le rendez-vous dans Google Agenda après la réponse, sans la retarder.
-function syncLater(request: NextRequest, appointmentId: number) {
-  const url = siteUrl(request.nextUrl.origin);
-  after(() => syncAppointment(appointmentId, url));
+// Reporte le rendez-vous dans Google Agenda après la réponse, sans la retarder, puis envoie
+// l'e-mail éventuel : il part après la synchronisation pour contenir le lien Google Meet.
+function syncLater(
+  request: NextRequest,
+  appointmentId: number,
+  send?: (locale: Locale, site: string) => Promise<unknown>,
+) {
+  const locale = requestLocale(request);
+  const site = siteUrl(request.nextUrl.origin);
+  after(async () => {
+    await syncAppointment(appointmentId, site);
+    await send?.(locale, site).catch((error) => console.error("[mail] préparation impossible :", error));
+  });
 }
 
 // Envoie un e-mail après la réponse : le visiteur n'attend pas l'API d'envoi.

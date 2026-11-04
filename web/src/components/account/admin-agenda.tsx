@@ -34,7 +34,10 @@ export function AdminAgenda({ dict, agenda, calendly }: AdminAgendaProps) {
       <CardContent className="space-y-6">
         <Alert role="status">
           <CalendarSyncIcon />
-          <AlertDescription>{agenda?.googleSync ? dict.googleOn : dict.googleOff}</AlertDescription>
+          <AlertDescription>
+            <p>{agenda?.googleSync ? dict.googleOn : dict.googleOff}</p>
+            {agenda?.googleSync && <p>{agenda.googleMeet ? dict.googleMeetOn : dict.googleMeetOff}</p>}
+          </AlertDescription>
         </Alert>
         {feedUrl ? (
           <Field>

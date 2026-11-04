@@ -315,6 +315,8 @@ export async function listAppointments(user: User) {
     past: row.starts.getTime() < now,
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
+    // Lien Google Meet de la visio, tant que le rendez-vous est confirmé.
+    meetUrl: row.status === "confirmed" ? row.meetUrl : null,
     // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
     client: user.role === "admin" ? row.userId !== null : undefined,
     // Le client peut encore annuler ou déplacer ce rendez-vous lui-même.

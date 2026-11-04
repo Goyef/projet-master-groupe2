@@ -40,6 +40,18 @@ function appointmentDetails(row: AppointmentRow, locale: Locale) {
   };
 }
 
+// Visio : bouton Google Meet (lien aussi en clair) ; sans lien, Youcef l'enverra lui-même.
+function visioBlocks(row: AppointmentRow, locale: Locale, withoutLink: "note" | "none"): MailBlock[] {
+  if (row.format !== "visio") return [];
+  const dict = getDictionary(locale).emails;
+  if (row.meetUrl)
+    return [
+      { kind: "button", label: dict.joinMeet, url: row.meetUrl, fallback: true },
+      { kind: "note", text: dict.meetNote },
+    ];
+  return withoutLink === "note" ? [{ kind: "note", text: dict.visioNote }] : [];
+}
+
 // « Séance de suivi » → « séance de suivi », au milieu d'une phrase.
 const inSentence = (value: string) => value.charAt(0).toLowerCase() + value.slice(1);
 
@@ -55,12 +67,13 @@ function calendarLink(row: AppointmentRow, locale: Locale, site: string) {
     format: dict.formats[row.format].toLowerCase(),
     minutes: types[row.type].minutes,
     url: `${site}/connexion`,
+    visio: row.meetUrl ? format(dict.calendar.meetLine, { meet: row.meetUrl }) : dict.calendar.meetPending,
   };
   return googleCalendarUrl({
     uid: appointmentUid(row.id),
     title: format(dict.calendar.clientTitle, values),
     description: format(dict.calendar.clientDescription, values),
-    location: dict.formats[row.format],
+    location: row.meetUrl ?? dict.formats[row.format],
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
   });
@@ -128,7 +141,7 @@ export async function mailBookingConfirmed(appointmentId: number, locale: Locale
     [
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
-      ...(row.format === "visio" ? [{ kind: "note", text: dict.visioNote } as const] : []),
+      ...visioBlocks(row, locale, "note"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       row.userId
         ? { kind: "paragraph", text: copy.manageClient }
@@ -161,6 +174,7 @@ export async function mailBookingRescheduled(
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
       { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      ...visioBlocks(row, locale, "none"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       { kind: "button", label: dict.openClientArea, url: `${site}/connexion` },
     ],
@@ -355,6 +369,7 @@ export async function mailRescheduledByOwner(appointmentId: number, previousStar
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
       { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      ...visioBlocks(row, locale, "none"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       { kind: "paragraph", text: copy.contact },
     ],
