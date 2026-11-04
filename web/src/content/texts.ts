@@ -675,12 +675,12 @@ export const texts = {
           "Vercel Inc. (États-Unis) : héberge et exécute le site ; vos données transitent par ses serveurs à chaque requête.",
           "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
           "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis.",
-          "Puwapi (service « Send ») : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
+          "Resend, Inc. (États-Unis) : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
         ],
       },
       {
         title: "Transferts hors de l’Union européenne",
-        text: "Vercel, Neon et Google sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
+        text: "Vercel, Neon, Google et Resend sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
       },
       {
         title: "Cookies",
