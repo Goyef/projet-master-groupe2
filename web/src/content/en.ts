@@ -77,7 +77,7 @@ export const english: Texts = {
     videoEyebrow: "In 30 seconds",
     videoTitle: "Synégo at a glance",
     videoDescription:
-      "A 30-second video without sound (in French): Synégo’s promise, the three-step approach (recognise, understand, move forward), then the journey, from booking a discovery call to the client area.",
+      "A 30-second video without sound: Synégo’s promise, the three-step approach (recognise, understand, move forward), the journey from booking a discovery call to the client area, then seminars for teams.",
     videoPlay: "Play the video",
     videoPause: "Pause the video",
   },

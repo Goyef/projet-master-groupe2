@@ -130,12 +130,15 @@ test("URL sans préfixe, préférence de langue et erreurs API", { timeout: 6000
       assert.ok(!html.includes(`href="/${locale}/`), `${locale}${path}: aucun lien préfixé`);
       assert.ok(html.includes(`content="${locale === "fr" ? "fr_FR" : "en_GB"}"`));
     }
-    // Vidéo de présentation sous l'accroche : fichier, affiche et titre traduit.
+    // Vidéo de présentation sous l'accroche, dans la langue de la page (fichier et affiche), titre traduit.
     const homePage = await (await fetch(origin + "/", { headers })).text();
-    assert.ok(homePage.includes('src="/video/synego-promo.mp4"'), `${locale}: vidéo de l'accueil`);
+    const promo = locale === "fr" ? "synego-promo" : "synego-promo-en";
+    const other = locale === "fr" ? "synego-promo-en" : "synego-promo";
+    assert.ok(homePage.includes(`src="/video/${promo}.mp4"`), `${locale}: vidéo de l'accueil dans la langue de la page`);
+    assert.ok(!homePage.includes(`/video/${other}.mp4`), `${locale}: pas de vidéo dans l'autre langue`);
     assert.ok(homePage.includes(dict.home.videoTitle), `${locale}: titre de la vidéo`);
-    assert.match(homePage, /<video[^>]+poster="[^"]+synego-promo-poster[^"]*\.webp"/, `${locale}: affiche de la vidéo`);
-    assert.equal((await fetch(origin + "/video/synego-promo.mp4")).status, 200, "fichier vidéo servi");
+    assert.match(homePage, new RegExp(`<video[^>]+poster="[^"]+${promo}-poster[^"]*\\.webp"`), `${locale}: affiche de la vidéo`);
+    assert.equal((await fetch(`${origin}/video/${promo}.mp4`)).status, 200, `${promo}.mp4 servi`);
     const missing = await fetch(`${origin}/page-inexistante`, { headers });
     assert.equal(missing.status, 404);
     assert.ok((await missing.text()).includes(dict.common.notFoundTitle));

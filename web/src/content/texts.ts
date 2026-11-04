@@ -137,7 +137,7 @@ export const texts = {
     videoEyebrow: "En 30 secondes",
     videoTitle: "Synégo en un coup d’œil",
     videoDescription:
-      "Vidéo sans son de 30 secondes : la promesse de Synégo, l’approche en trois temps (prendre conscience, comprendre, avancer), puis le parcours, de la réservation d’un appel découverte à l’espace client.",
+      "Vidéo sans son de 30 secondes : la promesse de Synégo, l’approche en trois temps (prendre conscience, comprendre, avancer), le parcours, de la réservation d’un appel découverte à l’espace client, puis les séminaires pour les équipes.",
     videoPlay: "Lire la vidéo",
     videoPause: "Mettre la vidéo en pause",
   },

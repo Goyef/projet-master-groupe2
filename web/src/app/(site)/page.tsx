@@ -8,15 +8,24 @@ import { Testimonials } from "@/components/sections/testimonials"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getTexts, canonicalUrl } from "@/lib/i18n-server"
+import type { Locale } from "@/lib/i18n"
+import { getLocale, getTexts, canonicalUrl } from "@/lib/i18n-server"
 import portraitYoucef from "../../../public/brand/youcef.png"
-import promoPoster from "../../../public/video/synego-promo-poster.webp"
+import promoPosterEn from "../../../public/video/synego-promo-en-poster.webp"
+import promoPosterFr from "../../../public/video/synego-promo-poster.webp"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
+// Vidéo de présentation dans la langue de la page : ses textes incrustés sont traduits.
+const promoVideos = {
+  fr: { src: "/video/synego-promo.mp4", poster: promoPosterFr.src },
+  en: { src: "/video/synego-promo-en.mp4", poster: promoPosterEn.src },
+} satisfies Record<Locale, { src: string; poster: string }>
+
 export default async function HomePage() {
-  const dict = await getTexts()
+  const [dict, locale] = await Promise.all([getTexts(), getLocale()])
   const home = dict.home
+  const promo = promoVideos[locale]
 
   return (
     <>
@@ -61,9 +70,11 @@ export default async function HomePage() {
             {home.videoTitle}
           </h2>
         </div>
+        {/* Nouvelle clé au changement de langue : la vidéo repart du début et se relance seule. */}
         <PromoVideo
-          src="/video/synego-promo.mp4"
-          poster={promoPoster.src}
+          key={promo.src}
+          src={promo.src}
+          poster={promo.poster}
           labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
           className="mx-auto max-w-screen-2xl"
         />
