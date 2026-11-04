@@ -23,6 +23,8 @@ export type Appointment = {
   past: boolean
   starts: number
   ends: number
+  // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
+  client?: boolean
   // Le client peut encore l'annuler ou le déplacer (plus de 24 h avant).
   changeable: boolean
 }

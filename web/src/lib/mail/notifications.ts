@@ -313,3 +313,52 @@ export async function mailTicketReply(ticketId: number, message: string, site: s
     ticket.name,
   );
 }
+
+// Rendez-vous annulé (ou supprimé) par le gérant : le client est prévenu. Reçoit le rendez-vous
+// tel qu'il était, car une suppression ne laisse plus rien en base. Le français est utilisé :
+// la langue du client n'est pas connue quand c'est le gérant qui agit.
+export async function mailCancelledByOwner(row: AppointmentRow, site: string) {
+  const locale: Locale = "fr";
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.ownerCancelled;
+  await send(
+    row.email,
+    locale,
+    site,
+    format(copy.subject, { date: details.date }),
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type), date: details.date }) },
+      { kind: "details", rows: details.rows },
+      { kind: "paragraph", text: row.userId ? copy.rebookClient : copy.rebookProspect },
+      { kind: "button", label: copy.book, url: `${site}${row.userId ? "/connexion" : "/rendez-vous"}` },
+    ],
+    row.userId ? row.firstName : personName(row),
+  );
+}
+
+// Rendez-vous déplacé par le gérant : nouveau créneau, ancien créneau, lien Google Agenda.
+export async function mailRescheduledByOwner(appointmentId: number, previousStarts: Date, site: string) {
+  const row = await loadAppointment(appointmentId);
+  if (!row) return;
+  const locale: Locale = "fr";
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.ownerRescheduled;
+  await send(
+    row.email,
+    locale,
+    site,
+    format(copy.subject, { date: details.date }),
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
+      { kind: "details", rows: details.rows },
+      { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
+      { kind: "paragraph", text: copy.contact },
+    ],
+    row.userId ? row.firstName : personName(row),
+  );
+}

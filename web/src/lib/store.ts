@@ -315,6 +315,8 @@ export async function listAppointments(user: User) {
     past: row.starts.getTime() < now,
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
+    // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
+    client: user.role === "admin" ? row.userId !== null : undefined,
     // Le client peut encore annuler ou déplacer ce rendez-vous lui-même.
     changeable:
       user.role === "client" &&
@@ -574,6 +576,68 @@ export async function removeSlot(id: number) {
     )
     .returning({ id: slots.id });
   if (!removed.length) throw new AppError("slotNotRemovable", 409);
+}
+
+// --- Gestion des rendez-vous par le gérant ----------------------------------
+// Pas de délai de 24 h pour le gérant : il peut annuler ou déplacer à tout moment.
+
+async function confirmedAppointment(id: number) {
+  const database = await db();
+  const [row] = await database.select().from(appointments).where(eq(appointments.id, id));
+  if (!row) throw new AppError("appointmentNotFound", 404);
+  if (row.status === "cancelled") throw new AppError("alreadyCancelled", 409);
+  return row;
+}
+
+// Annule le rendez-vous et libère son créneau ; renvoie le rendez-vous (pour l'e-mail du client).
+export async function ownerCancelAppointment(id: number) {
+  await confirmedAppointment(id);
+  const database = await db();
+  const [cancelled] = await database
+    .update(appointments)
+    .set({ status: "cancelled", slotId: null, cancelledAt: new Date() })
+    .where(and(eq(appointments.id, id), eq(appointments.status, "confirmed")))
+    .returning();
+  if (!cancelled) throw new AppError("alreadyCancelled", 409);
+  return cancelled;
+}
+
+// Déplace le rendez-vous vers un autre créneau libre et à venir ; l'ancien redevient disponible.
+export async function ownerRescheduleAppointment(id: number, slotId: number) {
+  const current = await confirmedAppointment(id);
+  const database = await db();
+  const minutes = types[current.type].minutes;
+  const [slot] = await database
+    .select()
+    .from(slots)
+    .where(and(eq(slots.id, slotId), freeSlot(minutes)));
+  if (!slot) throw new AppError("slotTaken", 409);
+  try {
+    const [updated] = await database
+      .update(appointments)
+      .set({
+        slotId: slot.id,
+        starts: slot.starts,
+        ends: new Date(slot.starts.getTime() + minutes * 60_000),
+        // Un rendez-vous déplacé n'est plus « réalisé ».
+        completed: false,
+      })
+      .where(and(eq(appointments.id, id), eq(appointments.status, "confirmed")))
+      .returning({ starts: appointments.starts });
+    if (!updated) throw new AppError("alreadyCancelled", 409);
+    return { starts: updated.starts, previousStarts: current.starts };
+  } catch (error) {
+    if (isUniqueViolation(error, SLOT_UNIQUE)) throw new AppError("slotTaken", 409);
+    throw error;
+  }
+}
+
+// Supprime définitivement le rendez-vous (son créneau redevient libre) ; renvoie ce qu'il était.
+export async function deleteAppointment(id: number) {
+  const database = await db();
+  const [deleted] = await database.delete(appointments).where(eq(appointments.id, id)).returning();
+  if (!deleted) throw new AppError("appointmentNotFound", 404);
+  return deleted;
 }
 
 export async function toggleCompleted(id: number) {
