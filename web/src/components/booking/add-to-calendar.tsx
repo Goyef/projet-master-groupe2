@@ -15,7 +15,7 @@ import { format } from "@/lib/format"
 
 type AddToCalendarProps = {
   dict: Texts["calendar"]
-  appointment: { id: number; type: string; format: string; starts: number; ends: number }
+  appointment: { id: number; type: string; format: string; starts: number; ends: number; meetUrl?: string | null }
   // Bouton clair sur fond foncé (carte « prochain rendez-vous »).
   variant?: "outline" | "secondary"
 }
@@ -28,12 +28,13 @@ export function AddToCalendar({ dict, appointment, variant = "outline" }: AddToC
       format: appointment.format.toLowerCase(),
       minutes: Math.round((appointment.ends - appointment.starts) / 60000),
       url: `${window.location.origin}/connexion`,
+      visio: appointment.meetUrl ? format(dict.meetLine, { meet: appointment.meetUrl }) : dict.meetPending,
     }
     return {
       uid: appointmentUid(appointment.id),
       title: format(dict.clientTitle, values),
       description: format(dict.clientDescription, values),
-      location: appointment.format,
+      location: appointment.meetUrl ?? appointment.format,
       starts: appointment.starts,
       ends: appointment.ends,
     }

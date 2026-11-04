@@ -10,5 +10,7 @@ export function bookingDictionary(dict: Texts): BookingFormProps["dict"] {
     errors: dict.errors,
     form: dict.booking.form,
     calendar: dict.calendar,
+    bookingPrefill: dict.bookingPrefill,
+    waitlist: dict.waitlist,
   }
 }

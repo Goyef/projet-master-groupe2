@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FocusEvent } from "react"
 import {
+  BellRingIcon,
   CalendarDaysIcon,
   CalendarRangeIcon,
   ClockIcon,
@@ -44,6 +45,7 @@ type AdminDashboardProps = {
   types: Texts["types"]
   formats: Texts["formats"]
   loadingLabel: string
+  waitlistDict: Texts["waitlist"]
   portal: Portal
 }
 
@@ -68,7 +70,7 @@ function Kpi({ icon: Icon, label, value, hint }: { icon: typeof ClockIcon; label
 
 // Espace gérant : indicateurs, calendrier des rendez-vous (avec actions), liste, disponibilités,
 // support, clients, documents et synchronisation d'agenda, rangés en onglets.
-export function AdminDashboard({ dict, types, formats, loadingLabel, portal }: AdminDashboardProps) {
+export function AdminDashboard({ dict, types, formats, loadingLabel, waitlistDict, portal }: AdminDashboardProps) {
   const formatDateTime = useDateFormatter()
   const { data, busy, act, submit, feedbackFor, isInvalid, errorFor, setMessage } = portal
   const [section, setSection] = useState<Section>("calendar")
@@ -105,6 +107,7 @@ export function AdminDashboard({ dict, types, formats, loadingLabel, portal }: A
   const freeThisWeek = freeSlots.filter((slot) => slot.starts < now + WEEK_MS).length
   const openTickets = (data.tickets ?? []).filter((ticket) => ticket.status !== "closed").length
   const next = upcoming[0]
+  const waitlist = data.waitlist ?? { vente: 0, audit: 0, suivi: 0 }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-12 sm:px-6">
@@ -120,7 +123,7 @@ export function AdminDashboard({ dict, types, formats, loadingLabel, portal }: A
       </div>
       {feedbackFor()}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Kpi icon={CalendarDaysIcon} label={text.kpiToday} value={format(text.count, { count: todayCount })} />
         <Kpi
           icon={CalendarRangeIcon}
@@ -135,6 +138,12 @@ export function AdminDashboard({ dict, types, formats, loadingLabel, portal }: A
           hint={next ? `${next.name} · ${typeLabel(types, next.type)}` : undefined}
         />
         <Kpi icon={LifeBuoyIcon} label={text.kpiTickets} value={String(openTickets)} />
+        <Kpi
+          icon={BellRingIcon}
+          label={waitlistDict.adminKpi}
+          value={String(waitlist.vente + waitlist.audit + waitlist.suivi)}
+          hint={format(waitlistDict.adminHint, waitlist)}
+        />
       </div>
 
       <Tabs

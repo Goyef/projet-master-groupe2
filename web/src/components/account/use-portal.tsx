@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FieldError } from "@/components/ui/field"
 import type { Texts } from "@/content/texts"
 
+import type { SessionNote } from "./session-notes"
+
 export type Appointment = {
   id: number
   type: keyof Texts["types"]
@@ -23,8 +25,12 @@ export type Appointment = {
   past: boolean
   starts: number
   ends: number
+  // Lien Google Meet de la visio (null tant qu'il n'a pas été créé).
+  meetUrl: string | null
   // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
   client?: boolean
+  // Gérant : compte client lié au rendez-vous (null pour un prospect).
+  userId?: number | null
   // Le client peut encore l'annuler ou le déplacer (plus de 24 h avant).
   changeable: boolean
 }
@@ -52,6 +58,16 @@ export type Client = {
   // Le client n'a pas encore remplacé le mot de passe provisoire généré par le gérant.
   passwordTemporary: boolean
 }
+// Journal d'humeur : `day` au format « AAAA-MM-JJ » (Paris), `mood` de 1 (orage) à 5 (soleil).
+export type MoodEntry = {
+  id: number
+  day: string
+  mood: number
+  note: string | null
+  updatedAt: number
+  // Renseigné pour le gérant uniquement.
+  userId?: number
+}
 export type PortalData = {
   user: {
     name: string
@@ -73,10 +89,16 @@ export type PortalData = {
   }[]
   completedSessions?: number
   tickets?: Ticket[]
+  // Préparations et comptes rendus de séance (voir session-notes.tsx).
+  sessionNotes?: SessionNote[]
+  // Client : son journal des 30 derniers jours ; gérant : celui de tous les clients sur 14 jours.
+  mood?: MoodEntry[]
   clients?: Client[]
   slots?: { id: number; starts: number; ends: number; appointment_id: number | null }[]
   // Gérant : lien d'abonnement à l'agenda (null s'il n'est pas configuré) et synchronisation Google.
-  agenda?: { feedPath: string | null; googleSync: boolean }
+  agenda?: { feedPath: string | null; googleSync: boolean; googleMeet: boolean }
+  // Gérant : personnes en liste d'attente (non encore prévenues), par type de rendez-vous.
+  waitlist?: Record<keyof Texts["types"], number>
 }
 
 // `scope` : carte où afficher le message (à côté du formulaire utilisé) ; absent = haut de page.

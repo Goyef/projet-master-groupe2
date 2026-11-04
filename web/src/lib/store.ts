@@ -7,19 +7,23 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { and, asc, count, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 
 import * as schema from "@/db/schema";
+import { TIME_ZONE } from "@/lib/format";
+import type { Locale } from "@/lib/i18n";
 import {
   appointments,
   documentRecipients,
   documents,
   loginAttempts,
   passwordResets,
+  sessionActions,
+  sessionNotes,
   sessions,
   slots,
   ticketReplies,
@@ -214,6 +218,8 @@ export type BookingInput = {
   phone: string;
   intention: string;
   user: User | null;
+  // Langue de l'interface, reprise par le rappel de la veille.
+  locale: Locale;
 };
 
 // Une même demande envoyée deux fois (double clic, réseau qui renvoie la requête…) :
@@ -270,6 +276,7 @@ export async function reserve(input: BookingInput) {
         email: input.email,
         phone: input.phone,
         intention: input.intention,
+        locale: input.locale,
         starts: slot.starts,
         ends: new Date(
           slot.starts.getTime() + types[input.type].minutes * 60_000,
@@ -315,8 +322,12 @@ export async function listAppointments(user: User) {
     past: row.starts.getTime() < now,
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
+    // Lien Google Meet de la visio, tant que le rendez-vous est confirmé.
+    meetUrl: row.status === "confirmed" ? row.meetUrl : null,
     // Gérant : rendez-vous pris depuis un compte client (sinon, prospect sans compte).
     client: user.role === "admin" ? row.userId !== null : undefined,
+    // Gérant : compte client lié (pour afficher son journal d'humeur dans le panneau).
+    userId: user.role === "admin" ? row.userId : undefined,
     // Le client peut encore annuler ou déplacer ce rendez-vous lui-même.
     changeable:
       user.role === "client" &&
@@ -348,20 +359,28 @@ const stillChangeable = (user: User, id: number) =>
     gt(appointments.starts, new Date(Date.now() + CHANGE_NOTICE_MS)),
   );
 
-// Annule le rendez-vous et libère son créneau pour une autre réservation.
+// Annule le rendez-vous et libère son créneau pour une autre réservation ; renvoie son horaire
+// (créneau libéré, pour la liste d'attente).
 export async function cancelAppointment(user: User, id: number) {
   await changeableAppointment(user, id);
   const database = await db();
-  const updated = await database
+  const [updated] = await database
     .update(appointments)
     .set({ status: "cancelled", slotId: null, cancelledAt: new Date() })
     .where(stillChangeable(user, id))
-    .returning({ id: appointments.id });
-  if (!updated.length) throw new AppError("tooLateToChange", 409);
+    .returning({ starts: appointments.starts });
+  if (!updated) throw new AppError("tooLateToChange", 409);
+  return updated;
 }
 
 // Déplace le rendez-vous vers un autre créneau libre ; l'ancien créneau redevient disponible.
-export async function rescheduleAppointment(user: User, id: number, slotId: number) {
+// La langue du client est mise à jour, et le rappel de la veille pourra repartir.
+export async function rescheduleAppointment(
+  user: User,
+  id: number,
+  slotId: number,
+  locale: Locale,
+) {
   const current = await changeableAppointment(user, id);
   const database = await db();
   const minutes = types[current.type].minutes;
@@ -379,6 +398,8 @@ export async function rescheduleAppointment(user: User, id: number, slotId: numb
         slotId: slot.id,
         starts: slot.starts,
         ends: new Date(slot.starts.getTime() + minutes * 60_000),
+        locale,
+        reminderSentAt: null,
       })
       .where(stillChangeable(user, id))
       .returning({ starts: appointments.starts });
@@ -619,8 +640,9 @@ export async function ownerRescheduleAppointment(id: number, slotId: number) {
         slotId: slot.id,
         starts: slot.starts,
         ends: new Date(slot.starts.getTime() + minutes * 60_000),
-        // Un rendez-vous déplacé n'est plus « réalisé ».
+        // Un rendez-vous déplacé n'est plus « réalisé », et recevra un nouveau rappel.
         completed: false,
+        reminderSentAt: null,
       })
       .where(and(eq(appointments.id, id), eq(appointments.status, "confirmed")))
       .returning({ starts: appointments.starts });
@@ -852,6 +874,234 @@ export async function setTicketStatus(id: number, status: TicketStatus) {
   if (!updated.length) throw new AppError("ticketNotFound", 404);
 }
 
+// --- Préparation et compte rendu de séance ----------------------------------
+// Réservé aux rendez-vous confirmés d'un client avec compte. Rien de tout cela n'est repris
+// dans un e-mail ni dans Google Agenda.
+
+export const PREPARATION_MAX = 1000;
+export const SUMMARY_MAX = 3000;
+export const SESSION_ACTIONS_MAX = 5;
+export const SESSION_ACTION_MAX = 200;
+
+// Préparations et comptes rendus visibles : ceux du client, ou tous pour le gérant.
+export async function listSessionNotes(user: User) {
+  const database = await db();
+  const rows = await database
+    .select({
+      appointmentId: appointments.id,
+      preparation: appointments.preparation,
+      summary: sessionNotes.summary,
+      publishedAt: sessionNotes.publishedAt,
+      updatedAt: sessionNotes.updatedAt,
+    })
+    .from(appointments)
+    .leftJoin(sessionNotes, eq(sessionNotes.appointmentId, appointments.id))
+    .where(
+      and(
+        eq(appointments.status, "confirmed"),
+        user.role === "admin"
+          ? sql`${appointments.userId} IS NOT NULL`
+          : eq(appointments.userId, user.id),
+        sql`(${appointments.preparation} IS NOT NULL OR ${sessionNotes.appointmentId} IS NOT NULL)`,
+      ),
+    );
+  const actions = rows.some((row) => row.summary !== null)
+    ? await database
+        .select()
+        .from(sessionActions)
+        .where(inArray(sessionActions.appointmentId, rows.map((row) => row.appointmentId)))
+        .orderBy(asc(sessionActions.position))
+    : [];
+  return rows.map((row) => ({
+    appointmentId: row.appointmentId,
+    preparation: row.preparation,
+    report:
+      row.summary === null
+        ? null
+        : {
+            summary: row.summary,
+            publishedAt: row.publishedAt?.getTime() ?? 0,
+            updatedAt: row.updatedAt?.getTime() ?? 0,
+            actions: actions
+              .filter((action) => action.appointmentId === row.appointmentId)
+              .map((action) => ({ id: action.id, label: action.label, done: action.done })),
+          },
+  }));
+}
+
+// Le client écrit (ou efface, avec null) sa préparation, jusqu'à l'heure de début.
+export async function savePreparation(user: User, id: number, preparation: string | null) {
+  const database = await db();
+  const updated = await database
+    .update(appointments)
+    .set({ preparation })
+    .where(
+      and(
+        eq(appointments.id, id),
+        eq(appointments.userId, user.id),
+        eq(appointments.status, "confirmed"),
+        gt(appointments.starts, new Date()),
+      ),
+    )
+    .returning({ id: appointments.id });
+  if (updated.length) return;
+  const [row] = await database
+    .select({ status: appointments.status })
+    .from(appointments)
+    .where(and(eq(appointments.id, id), eq(appointments.userId, user.id)));
+  if (!row) throw new AppError("appointmentNotFound", 404);
+  if (row.status === "cancelled") throw new AppError("alreadyCancelled", 409);
+  throw new AppError("preparationClosed", 409);
+}
+
+// Le gérant publie ou modifie le compte rendu d'une séance réalisée. `actions` : liste ordonnée ;
+// une action existante (avec `id`) garde son état coché, les absentes sont retirées.
+// Renvoie `first` : vrai à la première publication (l'e-mail au client ne part qu'alors).
+export async function saveSessionReport(
+  id: number,
+  summary: string,
+  actions: { id?: number; label: string }[],
+) {
+  const database = await db();
+  const [row] = await database
+    .select({ userId: appointments.userId, status: appointments.status, completed: appointments.completed })
+    .from(appointments)
+    .where(eq(appointments.id, id));
+  if (!row) throw new AppError("appointmentNotFound", 404);
+  if (row.status !== "confirmed" || !row.completed || row.userId === null)
+    throw new AppError("sessionReportUnavailable", 409);
+  return database.transaction(async (tx) => {
+    const now = new Date();
+    // L'insertion ne réussit qu'une fois : deux publications simultanées n'envoient qu'un e-mail.
+    const inserted = await tx
+      .insert(sessionNotes)
+      .values({ appointmentId: id, summary, publishedAt: now, updatedAt: now })
+      .onConflictDoNothing()
+      .returning({ id: sessionNotes.appointmentId });
+    if (!inserted.length)
+      await tx.update(sessionNotes).set({ summary, updatedAt: now }).where(eq(sessionNotes.appointmentId, id));
+    const kept = actions.flatMap((action) => (action.id ? [action.id] : []));
+    await tx
+      .delete(sessionActions)
+      .where(
+        and(
+          eq(sessionActions.appointmentId, id),
+          kept.length ? notInArray(sessionActions.id, kept) : undefined,
+        ),
+      );
+    for (const [position, action] of actions.entries()) {
+      if (action.id) {
+        const updated = await tx
+          .update(sessionActions)
+          .set({ label: action.label, position })
+          .where(and(eq(sessionActions.id, action.id), eq(sessionActions.appointmentId, id)))
+          .returning({ id: sessionActions.id });
+        if (!updated.length) throw new AppError("sessionActionNotFound", 404);
+      } else {
+        await tx.insert(sessionActions).values({ appointmentId: id, position, label: action.label });
+      }
+    }
+    return { first: inserted.length > 0 };
+  });
+}
+
+// Le client coche ou décoche une action d'une de ses séances.
+export async function setSessionActionDone(user: User, id: number, done: boolean) {
+  const database = await db();
+  const updated = await database
+    .update(sessionActions)
+    .set({ done, doneAt: done ? new Date() : null })
+    .where(
+      and(
+        eq(sessionActions.id, id),
+        sql`EXISTS (SELECT 1 FROM ${appointments} WHERE ${appointments.id} = ${sessionActions.appointmentId} AND ${appointments.userId} = ${user.id} AND ${appointments.status} = 'confirmed')`,
+      ),
+    )
+    .returning({ id: sessionActions.id });
+  if (!updated.length) throw new AppError("sessionActionNotFound", 404);
+}
+
+// --- Journal d'humeur (« météo intérieure ») ---------------------------------
+// Une entrée par client et par jour de Paris. Le client ne voit que son journal ;
+// le gérant voit celui de tous les clients. Jamais repris dans un e-mail ni un agenda.
+
+const { moodEntries } = schema;
+export const MOOD_NOTE_MAX = 500;
+// Historique renvoyé au client, et aperçu renvoyé au gérant (en jours, aujourd'hui compris).
+export const MOOD_CLIENT_DAYS = 30;
+export const MOOD_ADMIN_DAYS = 14;
+
+const parisDayFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+// Jour de Paris au format « AAAA-MM-JJ », éventuellement décalé de `offset` jours.
+export function parisDay(date = new Date(), offset = 0) {
+  const parts = Object.fromEntries(parisDayFormat.formatToParts(date).map((part) => [part.type, part.value]));
+  const utc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) + offset * 86_400_000;
+  return new Date(utc).toISOString().slice(0, 10);
+}
+
+export async function listMoodEntries(user: User) {
+  const database = await db();
+  const admin = user.role === "admin";
+  const since = parisDay(new Date(), -((admin ? MOOD_ADMIN_DAYS : MOOD_CLIENT_DAYS) - 1));
+  const rows = await database
+    .select()
+    .from(moodEntries)
+    .where(
+      and(
+        sql`${moodEntries.day} >= ${since}`,
+        admin ? undefined : eq(moodEntries.userId, user.id),
+      ),
+    )
+    .orderBy(desc(moodEntries.day));
+  return rows.map((row) => ({
+    id: row.id,
+    day: row.day,
+    mood: row.mood,
+    note: row.note,
+    updatedAt: row.updatedAt.getTime(),
+    ...(admin ? { userId: row.userId } : {}),
+  }));
+}
+
+// Sans `id` : enregistre l'humeur du jour (remplace l'entrée du jour si elle existe).
+// Avec `id` : modifie une entrée existante du client.
+export async function saveMood(user: User, mood: number, note: string | null, id?: number) {
+  const database = await db();
+  const now = new Date();
+  if (id !== undefined) {
+    const [updated] = await database
+      .update(moodEntries)
+      .set({ mood, note, updatedAt: now })
+      .where(and(eq(moodEntries.id, id), eq(moodEntries.userId, user.id)))
+      .returning({ day: moodEntries.day });
+    if (!updated) throw new AppError("moodNotFound", 404);
+    return updated;
+  }
+  const [saved] = await database
+    .insert(moodEntries)
+    .values({ userId: user.id, day: parisDay(now), mood, note, updatedAt: now })
+    .onConflictDoUpdate({
+      target: [moodEntries.userId, moodEntries.day],
+      set: { mood, note, updatedAt: now },
+    })
+    .returning({ day: moodEntries.day });
+  return saved;
+}
+
+export async function deleteMood(user: User, id: number) {
+  const database = await db();
+  const deleted = await database
+    .delete(moodEntries)
+    .where(and(eq(moodEntries.id, id), eq(moodEntries.userId, user.id)))
+    .returning({ id: moodEntries.id });
+  if (!deleted.length) throw new AppError("moodNotFound", 404);
+}
+
 // --- Mot de passe oublié -----------------------------------------------------
 
 export const RESET_LINK_MS = 3600_000;
@@ -975,4 +1225,47 @@ async function createSession(userId: number) {
 export async function logout(token: string) {
   const database = await db();
   await database.delete(sessions).where(eq(sessions.token, tokenHash(token)));
+}
+
+// --- Rappel de la veille -----------------------------------------------------
+
+// Rendez-vous confirmés, encore à venir, dont le début tombe le lendemain (date de Paris).
+// Les bornes (minuit de Paris) sont calculées par Postgres pour suivre les changements d'heure.
+// Un appel manqué n'est pas rattrapé : les rendez-vous du jour même ou passés sont exclus.
+function tomorrowInParis(now: Date) {
+  const today = sql`(${now.toISOString()}::timestamptz AT TIME ZONE ${TIME_ZONE})::date`;
+  return and(
+    eq(appointments.status, "confirmed"),
+    gt(appointments.starts, now),
+    sql`${appointments.starts} >= ((${today} + 1)::timestamp AT TIME ZONE ${TIME_ZONE})`,
+    sql`${appointments.starts} < ((${today} + 2)::timestamp AT TIME ZONE ${TIME_ZONE})`,
+  );
+}
+
+// Réserve les rappels à envoyer : `reminder_sent_at` est posé en une seule requête, avant l'envoi,
+// donc deux appels simultanés ne peuvent pas réclamer le même rendez-vous (aucun doublon).
+// `alreadySent` : rendez-vous du lendemain dont le rappel était déjà parti.
+export async function claimReminders(now = new Date()) {
+  const database = await db();
+  const claimed = await database
+    .update(appointments)
+    .set({ reminderSentAt: now })
+    .where(and(tomorrowInParis(now), isNull(appointments.reminderSentAt)))
+    .returning();
+  const [row] = await database
+    .select({ total: count() })
+    .from(appointments)
+    .where(tomorrowInParis(now));
+  claimed.sort((a, b) => a.starts.getTime() - b.starts.getTime());
+  return { claimed, alreadySent: (row?.total ?? 0) - claimed.length };
+}
+
+// Envoi échoué : le rendez-vous redevient éligible (un nouvel appel le même jour réessaiera),
+// sauf s'il a été réclamé entre-temps par un autre appel ou déplacé.
+export async function releaseReminder(id: number, claimedAt: Date) {
+  const database = await db();
+  await database
+    .update(appointments)
+    .set({ reminderSentAt: null })
+    .where(and(eq(appointments.id, id), eq(appointments.reminderSentAt, claimedAt)));
 }

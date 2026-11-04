@@ -14,7 +14,9 @@ export type MailBlock =
   // `fallback` : afficher aussi le lien en clair sous le bouton (liens importants seulement).
   | { kind: "button"; label: string; url: string; fallback?: boolean }
   | { kind: "quote"; text: string }
-  | { kind: "note"; text: string };
+  | { kind: "note"; text: string }
+  // Petite ligne discrète suivie d'un lien (désinscription…).
+  | { kind: "link"; text: string; label: string; url: string };
 
 type MailContent = {
   dict: Texts["emails"];
@@ -71,6 +73,8 @@ function blockHtml(block: MailBlock, dict: Texts["emails"]) {
           ? `<p style="margin:0 0 20px;font:12px/1.5 ${SANS};color:${MUTED}">${html(dict.buttonFallback)}<br><a href="${escapeHtml(block.url)}" style="color:${MUTED};word-break:break-all">${html(block.url)}</a></p>`
           : ""
       }`;
+    case "link":
+      return `<p style="margin:0 0 16px;font:13px/1.6 ${SANS};color:${MUTED}">${html(block.text)} <a href="${escapeHtml(block.url)}" style="color:${MUTED}">${html(block.label)}</a></p>`;
   }
 }
 
@@ -90,6 +94,8 @@ function blockText(block: MailBlock, locale: Locale) {
       return block.rows.map(([label, value]) => `${label}${colon}${value}`).join("\n");
     case "button":
       return `${block.label}${colon}${block.url}`;
+    case "link":
+      return `${block.text} ${block.label}${colon}${block.url}`;
   }
 }
 

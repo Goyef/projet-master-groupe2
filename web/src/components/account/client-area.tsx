@@ -49,7 +49,14 @@ export function ClientArea({ dict, bookingDict, types, formats, networkError }: 
 
   if (data.user.role === "admin")
     return (
-      <AdminDashboard dict={dict} types={types} formats={formats} loadingLabel={bookingDict.form.loading} portal={portal} />
+      <AdminDashboard
+        dict={dict}
+        types={types}
+        formats={formats}
+        loadingLabel={bookingDict.form.loading}
+        waitlistDict={bookingDict.waitlist}
+        portal={portal}
+      />
     )
 
   return <ClientDashboard dict={dict} bookingDict={bookingDict} types={types} formats={formats} portal={portal} />

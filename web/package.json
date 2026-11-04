@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/portal.test.mjs",
-    "test:i18n": "node --test tests/i18n.test.mjs",
+    "test": "node --test --test-concurrency=1 tests/portal.test.mjs tests/journal.test.mjs tests/seances.test.mjs tests/liste-attente.test.mjs tests/rappels.test.mjs",
+    "test:i18n": "node --test --test-concurrency=1 tests/i18n.test.mjs tests/self-assessment.test.mjs tests/sections.test.mjs",
     "db:up": "docker compose up -d --wait",
     "db:generate": "drizzle-kit generate"
   },

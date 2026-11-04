@@ -57,6 +57,20 @@
       "when": 1793779828861,
       "tag": "0007_mots_de_passe_oublies",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793788921857,
+      "tag": "0008_lien_google_meet",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793791049487,
+      "tag": "0009_differenciation",
+      "breakpoints": true
     }
   ]
 }
