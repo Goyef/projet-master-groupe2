@@ -146,6 +146,8 @@ test(
           PUWAPI_SEND_URL: sendUrl,
           MAIL_FROM: "noreply@abdu.fr",
           MAIL_FROM_NAME: "Youcef · Synégo",
+          // Même domaine que MAIL_FROM : accepté comme Reply-To (un autre domaine serait ignoré).
+          MAIL_REPLY_TO: "contact@abdu.fr",
           SITE_URL: "https://synego.example.test",
         },
         stdio: "pipe",
@@ -249,7 +251,8 @@ test(
       const welcome = await mailTo("inscrit@example.test", "Bienvenue");
       assert.equal(welcome.from, "noreply@abdu.fr");
       assert.equal(welcome.fromName, "Youcef · Synégo");
-      assert.equal(welcome.replyTo, "gerant@example.test");
+      assert.equal(welcome.replyTo, "contact@abdu.fr");
+      assert.ok(welcome.text.includes("merci de ne pas y répondre"));
       assert.ok(welcome.html.startsWith("<!doctype html>") && welcome.text.includes("Bonjour Inscrit,"));
       // L'inscription ouvre directement une session client, avec un mot de passe définitif.
       const registeredSession = registered.response.headers.get("set-cookie").split(";")[0];
@@ -394,11 +397,14 @@ test(
       assert.ok(confirmation.subject.startsWith("Votre rendez-vous du "));
       assert.ok(confirmation.html.includes("https://calendar.google.com/calendar/render?"));
       assert.ok(confirmation.text.includes("Ajouter à Google Agenda : https://calendar.google.com/"));
-      assert.ok(confirmation.text.includes("répondez simplement à cet e-mail"));
+      assert.ok(confirmation.text.includes("contactez Youcef au moins 24 h avant"));
+      assert.ok(!confirmation.text.includes("répondez"));
       const adminNotice = await mailTo("gerant@example.test", "Nouveau rendez-vous · Appel découverte · Camille Martin");
       assert.ok(adminNotice.text.includes(prospect.phone) && adminNotice.text.includes("Prospect (sans compte)"));
-      // Répondre à la notification écrit directement au client ; pas de signature « Youcef » au gérant.
-      assert.equal(adminNotice.replyTo, prospect.email);
+      // Pas de Reply-To vers le client (autre domaine) : son adresse est dans le corps.
+      // Pas de signature « Youcef » au gérant.
+      assert.notEqual(adminNotice.replyTo, prospect.email);
+      assert.ok(adminNotice.text.includes(prospect.email));
       assert.ok(!adminNotice.text.includes("À très bientôt"));
       for (const mail of [confirmation, adminNotice])
         assert.ok(!mail.html.includes(prospect.intention) && !mail.text.includes(prospect.intention));
@@ -965,6 +971,9 @@ test(
       const escaped = await mailTo("gerant@example.test", "Balise <script>");
       assert.ok(!escaped.html.includes("<script>") && !escaped.html.includes("<b>gras</b>"));
       assert.ok(escaped.html.includes("&lt;script&gt;") && escaped.html.includes("&lt;b&gt;gras&lt;/b&gt;"));
+      // Aucun e-mail n'a de Reply-To sur un autre domaine que celui de l'expéditeur.
+      assert.ok(mails.length > 0);
+      assert.ok(mails.every((mail) => !mail.replyTo || mail.replyTo.toLowerCase().endsWith("@abdu.fr")));
       // Parcours : un document se débloque après un nombre de séances réalisées.
       const bobId = clients.find((client) => client.email === "bob@example.test").id;
       const share = (title, requiredSessions) => {

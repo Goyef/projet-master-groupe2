@@ -264,7 +264,7 @@ export const english: Texts = {
   },
   emails: {
     greeting: "Hello {name},", signature: "See you soon,", signatureName: "Youcef · Synégo",
-    footer: "This email was sent by Synégo following an action on the website. You can reply to it: your message will go straight to Youcef.",
+    footer: "This email is sent automatically by Synégo, please do not reply to it. To reach Youcef, use your client area or the website.",
     adminFooter: "Automatic notification from your Synégo website. To reply to the client, write to their email address.",
     buttonFallback: "If the button does not work, copy this link into your browser:",
     labelType: "Appointment", labelDate: "Date", labelDuration: "Duration", labelFormat: "Format",
@@ -276,7 +276,7 @@ export const english: Texts = {
       subject: "Your appointment on {date} is confirmed", title: "Your appointment is confirmed",
       intro: "Thank you for booking. Here is a summary of your {type}:",
       manageClient: "You can cancel or reschedule it from your client area, up to 24 hours beforehand.",
-      manageProspect: "To cancel or reschedule, simply reply to this email at least 24 hours beforehand.",
+      manageProspect: "To cancel or reschedule, contact Youcef at least 24 hours beforehand.",
     },
     bookingRescheduled: {
       subject: "Your appointment has moved to {date}", title: "Your appointment has been rescheduled",

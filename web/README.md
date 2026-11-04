@@ -56,7 +56,7 @@ pnpm dev              # http://localhost:3000
 
 - **E-mails** (API transactionnelle puwapi, module « Send », expéditeur `noreply@abdu.fr`) : chaque e-mail a une version HTML (charte du site, tableaux et styles en ligne pour les messageries) et une version texte.
   - **Client ou prospect** : confirmation de rendez-vous (avec lien Google Agenda), déplacement, annulation, bienvenue après inscription, lien « choisir mon mot de passe » quand le gérant crée le compte (valable 7 jours), réponse du gérant à une demande de support.
-  - **Gérant** (`MAIL_ADMIN_TO`, sinon `ADMIN_EMAIL`) : nouveau rendez-vous, déplacement, annulation, nouvelle demande de support. Répondre à la notification écrit directement au client.
+  - **Gérant** (`MAIL_ADMIN_TO`, sinon `ADMIN_EMAIL`) : nouveau rendez-vous, déplacement, annulation, nouvelle demande de support. L'adresse e-mail du client figure dans la notification : pour lui répondre, écrivez-lui directement (pas de Reply-To vers son adresse).
   - Les e-mails partent **après la réponse** (`after`) : un retard ou une panne de Send ne bloque jamais une réservation (l'erreur est journalisée, adresse masquée). Une même réservation reçue deux fois n'envoie qu'une confirmation.
   - Langue : celle de l'interface pour les actions du visiteur ; français pour les notifications du gérant et les e-mails déclenchés par lui. « Ce qui vous amène » n'est jamais repris dans un e-mail ; tout contenu saisi est échappé dans le HTML.
 - **Mot de passe oublié** (`/mot-de-passe-oublie`, lien sous le champ mot de passe de `/connexion`) : un e-mail contient un lien valable **1 heure**, à usage unique (seul le hash du jeton est stocké, table `password_resets`). La réponse est la même que l'adresse ait un compte ou non, et 3 demandes au plus par quart d'heure partent pour une même adresse. Sur `/reinitialiser-mot-de-passe`, le nouveau mot de passe ferme les autres sessions et connecte directement le client.
@@ -70,7 +70,7 @@ Hors périmètre (décision de l'équipe) : rappels automatiques la veille du re
 | `PUWAPI_SEND_API_KEY`  | Clé de l'API Send (**serveur uniquement**, jamais dans le navigateur). Sans elle, aucun e-mail ne part ; en développement, le terminal indique ce qui aurait été envoyé. |
 | `MAIL_FROM`            | Expéditeur (`noreply@abdu.fr` par défaut)                                                     |
 | `MAIL_FROM_NAME`       | Nom affiché (`Youcef · Synégo` par défaut)                                                    |
-| `MAIL_REPLY_TO`        | Adresse qui reçoit les réponses des clients (sinon `ADMIN_EMAIL`)                             |
+| `MAIL_REPLY_TO`        | Facultatif : adresse de réponse (ex. `contact@abdu.fr`), **sur le même domaine que `MAIL_FROM`**, sinon ignorée (avertissement dans les journaux). Sans elle, aucun Reply-To n'est envoyé. |
 | `MAIL_ADMIN_TO`        | Destinataire des notifications du gérant (sinon `ADMIN_EMAIL`)                               |
 | `SITE_URL`             | Adresse publique du site, pour les liens et le logo des e-mails                               |
 

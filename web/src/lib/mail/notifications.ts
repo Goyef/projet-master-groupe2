@@ -72,13 +72,14 @@ async function send(to: string, locale: Locale, site: string, subject: string, t
   return sendMail({ to, subject, html, text });
 }
 
-// Notification du gérant : sans signature, et les réponses vont au client concerné.
-async function sendToAdmin(subject: string, title: string, blocks: MailBlock[], site: string, replyTo?: string) {
+// Notification du gérant : sans signature. Pas de Reply-To vers le client (autre domaine que
+// l'expéditeur, motif d'hameçonnage) : son adresse figure dans le corps du message.
+async function sendToAdmin(subject: string, title: string, blocks: MailBlock[], site: string) {
   const to = adminRecipient();
   if (!to) return;
   const dict = getDictionary(ADMIN_LOCALE).emails;
   const { html, text } = renderMail({ dict, locale: ADMIN_LOCALE, site, title, blocks, internal: true });
-  return sendMail({ to, subject, html, text, replyTo });
+  return sendMail({ to, subject, html, text });
 }
 
 // Notification du gérant : qui, quand, comment le joindre.
@@ -109,7 +110,6 @@ async function notifyAdmin(
       { kind: "button", label: dict.openAdminArea, url: `${site}/connexion` },
     ],
     site,
-    row.email,
   );
 }
 
@@ -288,7 +288,6 @@ export async function mailTicketCreated(ticketId: number, site: string) {
       { kind: "button", label: dict.openAdminArea, url: `${site}/connexion` },
     ],
     site,
-    ticket.email,
   );
 }
 
