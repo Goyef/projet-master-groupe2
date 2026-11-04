@@ -96,6 +96,8 @@ test("URL sans préfixe, préférence de langue et erreurs API", { timeout: 6000
       ...process.env, NEXT_TELEMETRY_DISABLED: "1",
       DATABASE_URL: "postgres://test:test@127.0.0.1:1/test",
       DATABASE_URL_UNPOOLED: "", ADMIN_EMAIL: "", ADMIN_PASSWORD: "",
+      // Sans clé OpenAI, l'assistant est désactivé (voir tests/assistant.test.mjs pour son fonctionnement).
+      OPENAI_API_KEY: "",
     },
     stdio: "pipe",
   });
@@ -142,6 +144,17 @@ test("URL sans préfixe, préférence de langue et erreurs API", { timeout: 6000
     const refused = await fetch(origin + "/api/portal", { method: "POST", headers: { Origin: "https://other.test", "Accept-Language": locale } });
     assert.equal(refused.status, 403);
     assert.equal((await refused.json()).error, dict.errors.originRefused);
+
+    // Assistant désactivé sans OPENAI_API_KEY : ni bouton, ni réponse de l'API.
+    const home = await (await fetch(origin + "/", { headers })).text();
+    assert.ok(!home.includes(dict.assistant.launcherLabel), `${locale}: pas de bouton d'assistant sans clé`);
+    const assistant = await fetch(origin + "/api/assistant", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json", "Accept-Language": locale },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Bonjour" }], page: "/" }),
+    });
+    assert.equal(assistant.status, 503);
+    assert.deepEqual(await assistant.json(), { error: dict.errors.assistantUnavailable, code: "assistantUnavailable" });
   }
   for (const [headers, locale] of [
     [{ "Accept-Language": "en-GB,en;q=0.9,fr;q=0.8" }, "en"],
