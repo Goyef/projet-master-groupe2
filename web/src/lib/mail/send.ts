@@ -12,7 +12,6 @@ export type Mail = {
   subject: string;
   html: string;
   text: string;
-  replyTo?: string;
 };
 
 function mailConfig() {
@@ -23,9 +22,25 @@ function mailConfig() {
     url: process.env.PUWAPI_SEND_URL?.trim() || DEFAULT_URL,
     from: process.env.MAIL_FROM?.trim() || "noreply@abdu.fr",
     fromName: process.env.MAIL_FROM_NAME?.trim() || "Youcef · Synégo",
-    // Les réponses des clients arrivent chez Youcef, pas sur l'adresse noreply.
-    replyTo: process.env.MAIL_REPLY_TO?.trim() || process.env.ADMIN_EMAIL?.trim() || undefined,
   };
+}
+
+const domainOf = (email: string) => email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+
+let foreignReplyToLogged = false;
+
+// Reply-To facultatif (MAIL_REPLY_TO), accepté seulement sur le domaine de l'expéditeur :
+// un Reply-To vers un autre domaine (ex. une adresse Gmail) est le motif classique de
+// l'hameçonnage et dégrade la délivrabilité. Sinon, aucun Reply-To n'est envoyé.
+function replyToFor(from: string) {
+  const replyTo = process.env.MAIL_REPLY_TO?.trim();
+  if (!replyTo) return undefined;
+  if (replyTo.includes("@") && domainOf(replyTo) === domainOf(from)) return replyTo;
+  if (!foreignReplyToLogged) {
+    foreignReplyToLogged = true;
+    console.warn(`[mail] MAIL_REPLY_TO ignorée : son domaine diffère de celui de l'expéditeur (@${domainOf(from)}).`);
+  }
+  return undefined;
 }
 
 export const mailEnabled = () => mailConfig() !== null;
@@ -47,6 +62,7 @@ export async function sendMail(mail: Mail): Promise<string | null> {
       console.info(`[mail] désactivé (PUWAPI_SEND_API_KEY absente) : « ${mail.subject} » → ${masked(mail.to)}`);
     return null;
   }
+  const replyTo = replyToFor(config.from);
   try {
     const response = await fetch(config.url, {
       method: "POST",
@@ -58,7 +74,7 @@ export async function sendMail(mail: Mail): Promise<string | null> {
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
-        ...(mail.replyTo || config.replyTo ? { replyTo: mail.replyTo || config.replyTo } : {}),
+        ...(replyTo ? { replyTo } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
     });

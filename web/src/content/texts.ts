@@ -476,7 +476,7 @@ export const texts = {
     greeting: "Bonjour {name},",
     signature: "À très bientôt,",
     signatureName: "Youcef · Synégo",
-    footer: "Cet e-mail vous est envoyé par Synégo à la suite d’une action sur le site. Vous pouvez y répondre : votre message arrivera directement à Youcef.",
+    footer: "Cet e-mail est envoyé automatiquement par Synégo, merci de ne pas y répondre. Pour joindre Youcef, utilisez votre espace client ou le site.",
     adminFooter: "Notification automatique de votre site Synégo. Pour répondre au client, écrivez à son adresse e-mail.",
     buttonFallback: "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :",
     labelType: "Rendez-vous",
@@ -499,7 +499,7 @@ export const texts = {
       title: "Votre rendez-vous est confirmé",
       intro: "Merci pour votre réservation. Voici le récapitulatif de votre {type} :",
       manageClient: "Vous pouvez l’annuler ou le déplacer depuis votre espace client, jusqu’à 24 h avant.",
-      manageProspect: "Pour l’annuler ou le déplacer, répondez simplement à cet e-mail au moins 24 h avant.",
+      manageProspect: "Pour l’annuler ou le déplacer, contactez Youcef au moins 24 h avant.",
     },
     bookingRescheduled: {
       subject: "Votre rendez-vous est déplacé au {date}",
