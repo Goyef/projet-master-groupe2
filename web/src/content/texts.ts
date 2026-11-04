@@ -133,6 +133,13 @@ export const texts = {
     seminarsText:
       "Synégo intervient aussi en entreprise : cohésion d’équipe, communication, gestion des conflits, connaissance de soi.",
     seminarsCta: "Découvrir les séminaires",
+    // Vidéo de présentation (motion design) sous l'accroche : sans son, en boucle.
+    videoEyebrow: "En 30 secondes",
+    videoTitle: "Synégo en un coup d’œil",
+    videoDescription:
+      "Vidéo sans son de 30 secondes : la promesse de Synégo, l’approche en trois temps (prendre conscience, comprendre, avancer), puis le parcours, de la réservation d’un appel découverte à l’espace client.",
+    videoPlay: "Lire la vidéo",
+    videoPause: "Mettre la vidéo en pause",
   },
   cta: {
     title: "Et si tout commençait par une conversation ?",
