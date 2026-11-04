@@ -40,6 +40,18 @@ function appointmentDetails(row: AppointmentRow, locale: Locale) {
   };
 }
 
+// Visio : bouton Google Meet (lien aussi en clair) ; sans lien, Youcef l'enverra lui-même.
+function visioBlocks(row: AppointmentRow, locale: Locale, withoutLink: "note" | "none"): MailBlock[] {
+  if (row.format !== "visio") return [];
+  const dict = getDictionary(locale).emails;
+  if (row.meetUrl)
+    return [
+      { kind: "button", label: dict.joinMeet, url: row.meetUrl, fallback: true },
+      { kind: "note", text: dict.meetNote },
+    ];
+  return withoutLink === "note" ? [{ kind: "note", text: dict.visioNote }] : [];
+}
+
 // « Séance de suivi » → « séance de suivi », au milieu d'une phrase.
 const inSentence = (value: string) => value.charAt(0).toLowerCase() + value.slice(1);
 
@@ -55,12 +67,13 @@ function calendarLink(row: AppointmentRow, locale: Locale, site: string) {
     format: dict.formats[row.format].toLowerCase(),
     minutes: types[row.type].minutes,
     url: `${site}/connexion`,
+    visio: row.meetUrl ? format(dict.calendar.meetLine, { meet: row.meetUrl }) : dict.calendar.meetPending,
   };
   return googleCalendarUrl({
     uid: appointmentUid(row.id),
     title: format(dict.calendar.clientTitle, values),
     description: format(dict.calendar.clientDescription, values),
-    location: dict.formats[row.format],
+    location: row.meetUrl ?? dict.formats[row.format],
     starts: row.starts.getTime(),
     ends: row.ends.getTime(),
   });
@@ -128,7 +141,7 @@ export async function mailBookingConfirmed(appointmentId: number, locale: Locale
     [
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
-      ...(row.format === "visio" ? [{ kind: "note", text: dict.visioNote } as const] : []),
+      ...visioBlocks(row, locale, "note"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       row.userId
         ? { kind: "paragraph", text: copy.manageClient }
@@ -161,6 +174,7 @@ export async function mailBookingRescheduled(
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
       { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      ...visioBlocks(row, locale, "none"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       { kind: "button", label: dict.openClientArea, url: `${site}/connexion` },
     ],
@@ -355,9 +369,119 @@ export async function mailRescheduledByOwner(appointmentId: number, previousStar
       { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
       { kind: "details", rows: details.rows },
       { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      ...visioBlocks(row, locale, "none"),
       { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
       { kind: "paragraph", text: copy.contact },
     ],
     row.userId ? row.firstName : personName(row),
   );
+}
+
+// Rappel de la veille (tâche planifiée), dans la langue enregistrée avec le rendez-vous.
+// Renvoie l'identifiant Resend, ou null si l'envoi a échoué (le rappel sera alors réessayable).
+export async function mailReminder(row: AppointmentRow, site: string) {
+  const locale: Locale = row.locale;
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.reminder;
+  // Comme visioBlocks, avec une note propre au rappel (le déplacement n'a plus lieu d'être évoqué).
+  const visio: MailBlock[] =
+    row.format !== "visio"
+      ? []
+      : row.meetUrl
+        ? [
+            { kind: "button", label: copy.joinMeet, url: row.meetUrl, fallback: true },
+            { kind: "note", text: copy.meetNote },
+          ]
+        : [{ kind: "note", text: dict.visioNote }];
+  return send(
+    row.email,
+    locale,
+    site,
+    format(copy.subject, { date: details.date }),
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
+      { kind: "details", rows: details.rows },
+      ...visio,
+      { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
+      { kind: "paragraph", text: row.userId ? copy.cancelClient : copy.cancelProspect },
+      ...(row.userId ? [{ kind: "button", label: dict.openClientArea, url: `${site}/connexion` } as const] : []),
+    ],
+    row.userId ? row.firstName : personName(row),
+  );
+}
+
+// Compte rendu de séance publié pour la première fois : le client est invité à le lire dans son
+// espace. Ni le compte rendu, ni les actions, ni la préparation ne figurent dans l'e-mail.
+// Langue enregistrée avec le rendez-vous (réservation ou dernier déplacement par le client).
+export async function mailSessionReport(appointmentId: number, site: string) {
+  const row = await loadAppointment(appointmentId);
+  if (!row?.userId) return;
+  const locale: Locale = row.locale;
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.sessionReport;
+  await send(
+    row.email,
+    locale,
+    site,
+    copy.subject,
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type), date: details.date }) },
+      { kind: "button", label: dict.openClientArea, url: `${site}/connexion` },
+      { kind: "note", text: copy.privacy },
+    ],
+    row.firstName,
+  );
+}
+
+// --- Liste d'attente « Prévenez-moi si un créneau se libère » ----------------
+// E-mails dans la langue de l'inscription ; chacun contient un lien de désinscription à usage unique.
+
+type WaitlistEntry = { email: string; type: AppointmentRow["type"]; locale: Locale };
+// Créneaux détaillés au plus dans un e-mail (ajout d'une longue plage de disponibilités).
+const WAITLIST_MAX_SLOTS = 10;
+
+export const waitlistUnsubscribeUrl = (site: string, token: string) =>
+  `${site}/liste-attente/desinscription?token=${encodeURIComponent(token)}`;
+
+// Les séances de suivi se réservent depuis l'espace client, le reste sur /rendez-vous.
+const waitlistBookingUrl = (site: string, type: WaitlistEntry["type"]) =>
+  `${site}${type === "suivi" ? "/connexion" : "/rendez-vous"}`;
+
+function waitlistUnsubscribe(locale: Locale, site: string, token: string): MailBlock {
+  const copy = getDictionary(locale).emails.waitlist;
+  return { kind: "link", text: copy.unsubscribeText, label: copy.unsubscribeLabel, url: waitlistUnsubscribeUrl(site, token) };
+}
+
+// Confirmation d'inscription (valable 30 jours).
+export async function mailWaitlistJoined(entry: WaitlistEntry & { expires: Date }, token: string, site: string) {
+  const dict = getDictionary(entry.locale);
+  const copy = dict.emails.waitlist.joined;
+  const type = dict.types[entry.type];
+  await send(entry.email, entry.locale, site, format(copy.subject, { type }), copy.title, [
+    { kind: "paragraph", text: format(copy.intro, { type: inSentence(type) }) },
+    { kind: "note", text: format(copy.expires, { date: formatDateTime(entry.expires, entry.locale) }) },
+    waitlistUnsubscribe(entry.locale, site, token),
+  ]);
+}
+
+// Un ou plusieurs créneaux viennent de se libérer : premier arrivé, premier servi.
+export async function mailWaitlistSlotFreed(entry: WaitlistEntry, token: string, starts: Date[], site: string) {
+  const dict = getDictionary(entry.locale);
+  const copy = dict.emails.waitlist.freed;
+  const type = dict.types[entry.type];
+  const shown = starts.slice(0, WAITLIST_MAX_SLOTS);
+  const lines = shown.map((date) => `• ${formatDateTime(date, entry.locale)}`);
+  if (starts.length > shown.length) lines.push(format(copy.more, { count: starts.length - shown.length }));
+  await send(entry.email, entry.locale, site, format(copy.subject, { type }), copy.title, [
+    { kind: "paragraph", text: format(copy.intro, { type: inSentence(type) }) },
+    { kind: "details", rows: [[copy.slotsLabel, lines.join("\n")]] },
+    { kind: "note", text: copy.firstCome },
+    { kind: "button", label: copy.button, url: waitlistBookingUrl(site, entry.type) },
+    { kind: "note", text: copy.oneAlert },
+    waitlistUnsubscribe(entry.locale, site, token),
+  ]);
 }

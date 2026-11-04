@@ -15,25 +15,27 @@ import { format } from "@/lib/format"
 
 type AddToCalendarProps = {
   dict: Texts["calendar"]
-  appointment: { id: number; type: string; format: string; starts: number; ends: number }
-  // Bouton clair sur fond foncé (carte « prochain rendez-vous »).
-  variant?: "outline" | "secondary"
+  appointment: { id: number; type: string; format: string; starts: number; ends: number; meetUrl?: string | null }
+  // Bouton clair sur fond foncé (carte « prochain rendez-vous »), ou discret à côté d'une action principale.
+  variant?: "outline" | "secondary" | "ghost"
+  className?: string
 }
 
 // Ajout du rendez-vous à l'agenda du client : Google Agenda ou fichier .ics (Apple, Outlook…).
-export function AddToCalendar({ dict, appointment, variant = "outline" }: AddToCalendarProps) {
+export function AddToCalendar({ dict, appointment, variant = "outline", className }: AddToCalendarProps) {
   function event(): CalendarEvent {
     const values = {
       type: appointment.type,
       format: appointment.format.toLowerCase(),
       minutes: Math.round((appointment.ends - appointment.starts) / 60000),
       url: `${window.location.origin}/connexion`,
+      visio: appointment.meetUrl ? format(dict.meetLine, { meet: appointment.meetUrl }) : dict.meetPending,
     }
     return {
       uid: appointmentUid(appointment.id),
       title: format(dict.clientTitle, values),
       description: format(dict.clientDescription, values),
-      location: appointment.format,
+      location: appointment.meetUrl ?? appointment.format,
       starts: appointment.starts,
       ends: appointment.ends,
     }
@@ -51,7 +53,7 @@ export function AddToCalendar({ dict, appointment, variant = "outline" }: AddToC
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="sm" variant={variant} />}>
+      <DropdownMenuTrigger render={<Button size="sm" variant={variant} className={className} />}>
         <CalendarPlusIcon data-icon="inline-start" />
         {dict.add}
       </DropdownMenuTrigger>

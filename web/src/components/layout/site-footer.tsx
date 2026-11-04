@@ -1,6 +1,7 @@
 import Link from "next/link"
 
 import { Logo } from "@/components/layout/logo"
+import { CrisisResources } from "@/components/sections/crisis-resources"
 import { legalNav, mainNav, siteConfig } from "@/config/site"
 import { getTexts } from "@/lib/i18n-server"
 
@@ -30,6 +31,9 @@ export async function SiteFooter() {
             </Link>
           ))}
         </nav>
+      </div>
+      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <CrisisResources dict={dict.crisis} variant="footer" />
       </div>
       <div className="border-t border-primary-foreground/15 py-4 text-center text-xs text-primary-foreground/60">
         © <CurrentYear /> {siteConfig.name}. {dict.footer.rights}

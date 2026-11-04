@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRightIcon, CompassIcon, EyeIcon, SearchIcon } from "lucide-react"
 
 import { CtaSection } from "@/components/sections/cta-section"
+import { Testimonials } from "@/components/sections/testimonials"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,6 +57,10 @@ export default async function HomePage() {
             <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.signsEyebrow}</p>
             <h2 className="text-4xl font-semibold">{home.signsTitle}</h2>
             <p className="text-muted-foreground">{home.signsIntro}</p>
+            <Button variant="outline" render={<Link href="/auto-evaluation" />} nativeButton={false}>
+              {dict.quiz.homeCta}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
           </div>
           <ul className="space-y-3">
             {home.signs.map((sign) => (
@@ -100,6 +105,14 @@ export default async function HomePage() {
           ))}
         </ol>
       </section>
+
+      <Testimonials
+        id="temoignages"
+        eyebrow={dict.testimonials.eyebrow}
+        title={dict.testimonials.title}
+        items={dict.testimonials.coaching}
+        className="pt-0"
+      />
 
       <section id="qui-suis-je" className="scroll-mt-20 border-y bg-card">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-2">

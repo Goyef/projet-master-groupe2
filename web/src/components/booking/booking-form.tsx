@@ -4,7 +4,7 @@ import { useDateFormatter, useLocalizedFetch } from "@/components/i18n/locale-pr
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { CircleCheckIcon, CircleAlertIcon } from "lucide-react"
+import { CircleCheckIcon, CircleAlertIcon, SparklesIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -26,25 +26,31 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { siteConfig } from "@/config/site"
 import type { Texts } from "@/content/texts"
+import { INTENTION_MAX_LENGTH, takeBookingPrefill } from "@/lib/booking-prefill"
 import { format } from "@/lib/format"
 
 import { AddToCalendar } from "./add-to-calendar"
 import { SlotPicker, type Slot } from "./slot-picker"
+import { WaitlistForm } from "./waitlist-form"
 
 type AppointmentType = keyof Texts["types"]
 
 export type BookingFormProps = {
-  dict: Pick<Texts, "types" | "formats" | "minutes" | "errors" | "calendar"> & { form: Texts["booking"]["form"] }
+  dict: Pick<Texts, "types" | "formats" | "minutes" | "errors" | "calendar" | "bookingPrefill" | "waitlist"> & {
+    form: Texts["booking"]["form"]
+  }
   // Client connecté : choix entre suivi et audit, sans saisie du nom ni de l'e-mail.
   client?: boolean
   // Téléphone du compte client, prérempli dans le formulaire.
   defaultPhone?: string
   onBooked?: () => void
+  // Liste d'attente : e-mail prérempli et suivi proposé à un client connecté.
+  waitlist?: { email?: string; client?: boolean }
 }
 
 const durations: Record<AppointmentType, number> = { vente: 45, audit: 45, suivi: 60 }
 
-export function BookingForm({ dict, client = false, defaultPhone, onBooked }: BookingFormProps) {
+export function BookingForm({ dict, client = false, defaultPhone, onBooked, waitlist }: BookingFormProps) {
   const formatDateTime = useDateFormatter()
   const localizedFetch = useLocalizedFetch()
   const choices: AppointmentType[] = client ? ["suivi", "audit"] : ["vente", "audit"]
@@ -64,12 +70,36 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
   const [booked, setBooked] = useState<{ id: number; type: string; format: string; starts: number; ends: number } | null>(
     null,
   )
+  // Champ « Ce qui vous amène » prérempli depuis une autre page (questionnaire, séminaires).
+  const intentionField = useRef<HTMLTextAreaElement>(null)
+  const [prefilled, setPrefilled] = useState(false)
   const isInvalid = (field: string) => !!result && !result.ok && result.field === field
   const errorFor = (field: string) => isInvalid(field) && <FieldError>{result?.message}</FieldError>
 
   // Les créneaux sont rechargés à chaque changement de type et après chaque réservation.
   const requestKey = `${type}:${revision}`
   const loading = loadedKey !== requestKey
+
+  // Au montage : lit une seule fois le préremplissage laissé dans sessionStorage, puis l'efface.
+  // Lecture différée : le stockage n'existe pas au rendu serveur, et un montage annulé
+  // (double montage du mode strict) ne doit pas consommer la valeur.
+  useEffect(() => {
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      const prefill = takeBookingPrefill()
+      if (!prefill) return
+      const allowed: AppointmentType[] = client ? ["suivi", "audit"] : ["vente", "audit"]
+      if (prefill.type && allowed.includes(prefill.type)) setType(prefill.type)
+      if (intentionField.current && prefill.intention) {
+        intentionField.current.value = prefill.intention
+        setPrefilled(true)
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [client])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -134,6 +164,7 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
       })
       form.reset()
       setConsent(false)
+      setPrefilled(false)
       onBooked?.()
     } catch (error) {
       setResult({ ok: false, message: error instanceof Error ? error.message : dict.errors.network })
@@ -215,6 +246,15 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
                 emptyLabel={dict.form.noSlots}
               />
               {errorFor("slot")}
+              <WaitlistForm
+                dict={dict.waitlist}
+                types={dict.types}
+                networkError={dict.errors.network}
+                type={type}
+                empty={!loading && !slots.length}
+                defaultEmail={waitlist?.email}
+                client={client || waitlist?.client}
+              />
             </FieldSet>
 
             {!client && (
@@ -303,13 +343,20 @@ export function BookingForm({ dict, client = false, defaultPhone, onBooked }: Bo
                 {dict.form.intention}
               </FieldLabel>
               <Textarea
+                ref={intentionField}
                 id="intention"
                 aria-invalid={isInvalid("intention")}
                 name="intention"
                 required
-                maxLength={1000}
-                rows={4}
+                maxLength={INTENTION_MAX_LENGTH}
+                rows={prefilled ? 8 : 4}
               />
+              {prefilled && (
+                <FieldDescription role="status" className="flex items-start gap-1.5">
+                  <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-brand-sky" aria-hidden />
+                  {dict.bookingPrefill.notice}
+                </FieldDescription>
+              )}
               <FieldDescription>{dict.form.intentionHint}</FieldDescription>
               {errorFor("intention")}
             </Field>

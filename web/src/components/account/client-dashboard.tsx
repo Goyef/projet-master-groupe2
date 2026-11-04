@@ -3,7 +3,7 @@
 import { useDateFormatter } from "@/components/i18n/locale-provider"
 
 import { useState } from "react"
-import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon } from "lucide-react"
+import { CalendarPlusIcon, ClockIcon, DownloadIcon, KeyRoundIcon, LockIcon, LogOutIcon, VideoIcon } from "lucide-react"
 
 import { AddToCalendar } from "@/components/booking/add-to-calendar"
 import { BookingForm, type BookingFormProps } from "@/components/booking/booking-form"
@@ -19,7 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
-import { AppointmentActions } from "./appointment-actions"
+import { AppointmentActions, QUIET_ON_PRIMARY } from "./appointment-actions"
+import { OpenSessionActions, PreparationBadge, PreparationDialog, SessionReportDialog } from "./session-notes"
+import { MoodJournal } from "./mood-journal"
 import { ClientSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -31,7 +33,7 @@ type ClientDashboardProps = {
   portal: Portal
 }
 
-type Section = "appointments" | "book" | "documents" | "support" | "profile"
+type Section = "appointments" | "book" | "documents" | "journal" | "support" | "profile"
 type Filter = "upcoming" | "past" | "cancelled"
 
 // Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents, support et profil.
@@ -60,6 +62,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
     cancelled: text.emptyCancelled,
   }
   const actionProps = { dict: text, types, loadingLabel: bookingDict.form.loading, portal }
+  const notesProps = { dict: dict.sessionNotes, types, portal }
 
   const statusOf = (item: Appointment) => {
     if (item.status === "cancelled") return <Badge variant="outline">{dict.statusCancelled}</Badge>
@@ -79,7 +82,21 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
     format: formats[item.format],
     starts: item.starts,
     ends: item.ends,
+    meetUrl: item.meetUrl,
   })
+  // Lien Google Meet de la visio, ouvert dans un nouvel onglet (même taille que « Ajouter à mon agenda »).
+  const joinMeet = (item: Appointment, variant: "secondary" | "outline") =>
+    item.meetUrl ? (
+      <Button
+        variant={variant}
+        size="sm"
+        render={<a href={item.meetUrl} target="_blank" rel="noopener noreferrer" />}
+        nativeButton={false}
+      >
+        <VideoIcon data-icon="inline-start" />
+        {text.joinMeet}
+      </Button>
+    ) : null
   const duration = (item: Appointment) => `${Math.round((item.ends - item.starts) / 60000)} ${bookingDict.minutes}`
 
   return (
@@ -113,7 +130,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
 
       <Card className="bg-primary text-primary-foreground ring-0">
         <CardHeader>
-          <CardDescription className="text-xs font-medium tracking-widest text-primary-foreground/75 uppercase">
+          <CardDescription className="text-sm font-medium text-primary-foreground/75">
             {text.nextTitle}
           </CardDescription>
           {next ? (
@@ -130,9 +147,17 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                 {types[next.type]} · {duration(next)} · {formats[next.format]}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(next)} variant="secondary" />
+                {/* En visio, « Rejoindre » est l'action principale : les autres passent en discret. */}
+                {joinMeet(next, "secondary")}
+                <AddToCalendar
+                  dict={bookingDict.calendar}
+                  appointment={calendarEntry(next)}
+                  variant={next.meetUrl ? "ghost" : "secondary"}
+                  className={next.meetUrl ? QUIET_ON_PRIMARY : undefined}
+                />
+                <PreparationDialog appointment={next} {...notesProps} inverted quiet={Boolean(next.meetUrl)} />
                 {next.changeable ? (
-                  <AppointmentActions appointment={next} {...actionProps} inverted />
+                  <AppointmentActions appointment={next} {...actionProps} inverted quiet={Boolean(next.meetUrl)} />
                 ) : (
                   <p className="text-sm text-primary-foreground/75">{text.tooLate}</p>
                 )}
@@ -147,6 +172,8 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
         </CardContent>
       </Card>
 
+      <OpenSessionActions {...notesProps} />
+
       <Tabs
         value={section}
         onValueChange={(value) => {
@@ -160,6 +187,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             <TabsTrigger value="appointments">{text.tabAppointments}</TabsTrigger>
             <TabsTrigger value="book">{text.tabBook}</TabsTrigger>
             <TabsTrigger value="documents">{text.tabDocuments}</TabsTrigger>
+            <TabsTrigger value="journal">{dict.mood.tab}</TabsTrigger>
             <TabsTrigger value="support">{text.tabSupport}</TabsTrigger>
             <TabsTrigger value="profile">{text.tabProfile}</TabsTrigger>
           </TabsList>
@@ -199,9 +227,13 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {statusOf(item)}
+                        {filter === "upcoming" && joinMeet(item, "outline")}
+                        {filter === "upcoming" && <PreparationBadge appointment={item} {...notesProps} />}
                         {filter === "upcoming" && (
                           <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(item)} />
                         )}
+                        {filter === "upcoming" && <PreparationDialog appointment={item} {...notesProps} />}
+                        {filter === "past" && <SessionReportDialog appointment={item} {...notesProps} />}
                         <AppointmentActions appointment={item} {...actionProps} />
                         {filter === "upcoming" && !item.changeable && (
                           <span className="text-sm text-muted-foreground">{text.tooLate}</span>
@@ -220,6 +252,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             dict={bookingDict}
             client
             defaultPhone={user.phone ?? undefined}
+            waitlist={{ email: user.email }}
             onBooked={() => refresh().catch((error: Error) => setMessage({ ok: false, text: error.message }))}
           />
         </TabsContent>
@@ -232,7 +265,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3 rounded-lg border p-4">
-                <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">{text.journeyTitle}</p>
+                <p className="text-sm font-medium text-muted-foreground">{text.journeyTitle}</p>
                 {goal > 0 ? (
                   <Progress value={Math.min(done, goal)} max={goal}>
                     <ProgressLabel>{format(text.journeyDone, { count: done })}</ProgressLabel>
@@ -280,6 +313,10 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="journal" className="pt-4">
+          <MoodJournal dict={dict.mood} portal={portal} />
         </TabsContent>
 
         <TabsContent value="support" className="pt-4">

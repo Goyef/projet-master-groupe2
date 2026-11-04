@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input"
 import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
+import { ClientMoodDialog } from "./mood-journal"
 import type { Client, Portal } from "./use-portal"
 
 type Credentials = { email: string; password: string; reset: boolean }
@@ -240,6 +241,7 @@ export function ClientAccounts({ dict, portal }: ClientAccountsProps) {
                 <Badge variant={client.active ? "default" : "outline"}>
                   {client.active ? dict.active : dict.disabled}
                 </Badge>
+                <ClientMoodDialog client={client} dict={dict.mood} portal={portal} />
                 <ResetPasswordDialog client={client} dict={dict} portal={portal} onReset={setCredentials} />
                 <Button
                   size="sm"
