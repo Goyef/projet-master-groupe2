@@ -282,7 +282,7 @@ export const english: Texts = {
   },
   emails: {
     greeting: "Hello {name},", signature: "See you soon,", signatureName: "Youcef · Synégo",
-    footer: "This email was sent by Synégo following an action on the website. You can reply to it: your message will go straight to Youcef.",
+    footer: "This email is sent automatically by Synégo, please do not reply to it. To reach Youcef, use your client area or the website.",
     adminFooter: "Automatic notification from your Synégo website. To reply to the client, write to their email address.",
     buttonFallback: "If the button does not work, copy this link into your browser:",
     labelType: "Appointment", labelDate: "Date", labelDuration: "Duration", labelFormat: "Format",
@@ -294,7 +294,7 @@ export const english: Texts = {
       subject: "Your appointment on {date} is confirmed", title: "Your appointment is confirmed",
       intro: "Thank you for booking. Here is a summary of your {type}:",
       manageClient: "You can cancel or reschedule it from your client area, up to 24 hours beforehand.",
-      manageProspect: "To cancel or reschedule, simply reply to this email at least 24 hours beforehand.",
+      manageProspect: "To cancel or reschedule, contact Youcef at least 24 hours beforehand.",
     },
     bookingRescheduled: {
       subject: "Your appointment has moved to {date}", title: "Your appointment has been rescheduled",
@@ -418,10 +418,10 @@ export const english: Texts = {
           "Vercel Inc. (United States): hosts and runs the website; your data passes through its servers with each request.",
           "Neon, Inc. (United States, Databricks group): hosts the database, stored in the European Union (Frankfurt).",
           "Google LLC (United States), only if Youcef syncs appointments with Google Calendar: each appointment is sent with its type, date, your name, email address and phone number. “What brings you here” is never sent.",
-          "Puwapi (“Send” service): sends the website’s emails (appointment confirmation, rescheduling or cancellation, forgotten password, welcome, support replies). It receives your email address and the content of these messages; “What brings you here” is never included.",
+          "Resend, Inc. (United States): sends the website’s emails (appointment confirmation, rescheduling or cancellation, forgotten password, welcome, support replies). It receives your email address and the content of these messages; “What brings you here” is never included.",
         ],
       },
-      { title: "Transfers outside the European Union", text: "Vercel, Neon and Google are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
+      { title: "Transfers outside the European Union", text: "Vercel, Neon, Google and Resend are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
       { title: "Cookies", text: "The website only uses strictly necessary cookies, which do not require your consent: the client area session cookie (secure, inaccessible to scripts, valid for eight hours) and the synego-locale cookie, which remembers your chosen language for one year. Your chosen display theme is stored only in your browser (local storage). No advertising or analytics cookies are used." },
       {
         title: "Retention periods",

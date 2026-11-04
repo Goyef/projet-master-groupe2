@@ -85,27 +85,30 @@ test(
     }
     const feedToken = randomBytes(24).toString("hex");
 
-    // Faux puwapi Send : vérifie la clé et garde les e-mails reçus, sans rien envoyer.
-    const sendKey = randomBytes(16).toString("hex");
+    // Faux Resend : vérifie la clé (Bearer) et garde les e-mails reçus, sans rien envoyer.
+    // Chaque e-mail est gardé tel que reçu (`raw`) et décomposé pour les vérifications :
+    // `from` (adresse), `fromName` (nom affiché) et `replyTo`.
+    const sendKey = "re_test_" + randomBytes(16).toString("hex");
     const mails = [];
     const send = createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) body += chunk;
-      if (req.method !== "POST" || req.url !== "/api/public/send/messages") {
+      if (req.method !== "POST" || req.url !== "/emails") {
         res.writeHead(404);
         return res.end();
       }
-      if (req.headers["x-server-api-key"] !== sendKey) {
-        res.writeHead(401);
-        return res.end();
+      if (req.headers.authorization !== `Bearer ${sendKey}`) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ name: "validation_error", message: "API key is invalid" }));
       }
-      const mail = JSON.parse(body);
-      mails.push(mail);
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ id: mails.length }));
+      const raw = JSON.parse(body);
+      const [, fromName, from] = raw.from.match(/^"(.*)" <(.+)>$/) ?? [];
+      mails.push({ ...raw, raw, from, fromName, replyTo: raw.reply_to });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ id: `resend-${mails.length}` }));
     });
     await new Promise((resolve) => send.listen(0, "127.0.0.1", resolve));
-    const sendUrl = `http://127.0.0.1:${send.address().port}/api/public/send/messages`;
+    const sendUrl = `http://127.0.0.1:${send.address().port}/emails`;
     const mailsTo = (address, subjectPart = "") =>
       mails.filter((mail) => mail.to.includes(address) && mail.subject.includes(subjectPart));
     // Attend un e-mail précis (envoyé après la réponse) et le renvoie.
@@ -141,11 +144,13 @@ test(
           GOOGLE_PRIVATE_KEY: privateKey,
           GOOGLE_CALENDAR_API_URL: googleUrl + "/calendar/v3",
           GOOGLE_TOKEN_URL: googleUrl + "/token",
-          // E-mails : vers le faux puwapi Send.
-          PUWAPI_SEND_API_KEY: sendKey,
-          PUWAPI_SEND_URL: sendUrl,
+          // E-mails : vers le faux Resend.
+          RESEND_API_KEY: sendKey,
+          RESEND_API_URL: sendUrl,
           MAIL_FROM: "noreply@abdu.fr",
           MAIL_FROM_NAME: "Youcef · Synégo",
+          // Même domaine que MAIL_FROM : accepté comme Reply-To (un autre domaine serait ignoré).
+          MAIL_REPLY_TO: "contact@abdu.fr",
           SITE_URL: "https://synego.example.test",
         },
         stdio: "pipe",
@@ -249,7 +254,12 @@ test(
       const welcome = await mailTo("inscrit@example.test", "Bienvenue");
       assert.equal(welcome.from, "noreply@abdu.fr");
       assert.equal(welcome.fromName, "Youcef · Synégo");
-      assert.equal(welcome.replyTo, "gerant@example.test");
+      assert.equal(welcome.replyTo, "contact@abdu.fr");
+      // Format exact attendu par Resend.
+      assert.equal(welcome.raw.from, '"Youcef · Synégo" <noreply@abdu.fr>');
+      assert.deepEqual(welcome.raw.to, ["inscrit@example.test"]);
+      assert.equal(welcome.raw.reply_to, "contact@abdu.fr");
+      assert.ok(welcome.text.includes("merci de ne pas y répondre"));
       assert.ok(welcome.html.startsWith("<!doctype html>") && welcome.text.includes("Bonjour Inscrit,"));
       // L'inscription ouvre directement une session client, avec un mot de passe définitif.
       const registeredSession = registered.response.headers.get("set-cookie").split(";")[0];
@@ -394,11 +404,14 @@ test(
       assert.ok(confirmation.subject.startsWith("Votre rendez-vous du "));
       assert.ok(confirmation.html.includes("https://calendar.google.com/calendar/render?"));
       assert.ok(confirmation.text.includes("Ajouter à Google Agenda : https://calendar.google.com/"));
-      assert.ok(confirmation.text.includes("répondez simplement à cet e-mail"));
+      assert.ok(confirmation.text.includes("contactez Youcef au moins 24 h avant"));
+      assert.ok(!confirmation.text.includes("répondez"));
       const adminNotice = await mailTo("gerant@example.test", "Nouveau rendez-vous · Appel découverte · Camille Martin");
       assert.ok(adminNotice.text.includes(prospect.phone) && adminNotice.text.includes("Prospect (sans compte)"));
-      // Répondre à la notification écrit directement au client ; pas de signature « Youcef » au gérant.
-      assert.equal(adminNotice.replyTo, prospect.email);
+      // Pas de Reply-To vers le client (autre domaine) : son adresse est dans le corps.
+      // Pas de signature « Youcef » au gérant.
+      assert.notEqual(adminNotice.replyTo, prospect.email);
+      assert.ok(adminNotice.text.includes(prospect.email));
       assert.ok(!adminNotice.text.includes("À très bientôt"));
       for (const mail of [confirmation, adminNotice])
         assert.ok(!mail.html.includes(prospect.intention) && !mail.text.includes(prospect.intention));
@@ -965,6 +978,9 @@ test(
       const escaped = await mailTo("gerant@example.test", "Balise <script>");
       assert.ok(!escaped.html.includes("<script>") && !escaped.html.includes("<b>gras</b>"));
       assert.ok(escaped.html.includes("&lt;script&gt;") && escaped.html.includes("&lt;b&gt;gras&lt;/b&gt;"));
+      // Aucun e-mail n'a de Reply-To sur un autre domaine que celui de l'expéditeur.
+      assert.ok(mails.length > 0);
+      assert.ok(mails.every((mail) => !mail.replyTo || mail.replyTo.toLowerCase().endsWith("@abdu.fr")));
       // Parcours : un document se débloque après un nombre de séances réalisées.
       const bobId = clients.find((client) => client.email === "bob@example.test").id;
       const share = (title, requiredSessions) => {

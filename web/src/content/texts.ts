@@ -538,7 +538,7 @@ export const texts = {
     greeting: "Bonjour {name},",
     signature: "À très bientôt,",
     signatureName: "Youcef · Synégo",
-    footer: "Cet e-mail vous est envoyé par Synégo à la suite d’une action sur le site. Vous pouvez y répondre : votre message arrivera directement à Youcef.",
+    footer: "Cet e-mail est envoyé automatiquement par Synégo, merci de ne pas y répondre. Pour joindre Youcef, utilisez votre espace client ou le site.",
     adminFooter: "Notification automatique de votre site Synégo. Pour répondre au client, écrivez à son adresse e-mail.",
     buttonFallback: "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :",
     labelType: "Rendez-vous",
@@ -561,7 +561,7 @@ export const texts = {
       title: "Votre rendez-vous est confirmé",
       intro: "Merci pour votre réservation. Voici le récapitulatif de votre {type} :",
       manageClient: "Vous pouvez l’annuler ou le déplacer depuis votre espace client, jusqu’à 24 h avant.",
-      manageProspect: "Pour l’annuler ou le déplacer, répondez simplement à cet e-mail au moins 24 h avant.",
+      manageProspect: "Pour l’annuler ou le déplacer, contactez Youcef au moins 24 h avant.",
     },
     bookingRescheduled: {
       subject: "Votre rendez-vous est déplacé au {date}",
@@ -753,12 +753,12 @@ export const texts = {
           "Vercel Inc. (États-Unis) : héberge et exécute le site ; vos données transitent par ses serveurs à chaque requête.",
           "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
           "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis.",
-          "Puwapi (service « Send ») : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
+          "Resend, Inc. (États-Unis) : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
         ],
       },
       {
         title: "Transferts hors de l’Union européenne",
-        text: "Vercel, Neon et Google sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
+        text: "Vercel, Neon, Google et Resend sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
       },
       {
         title: "Cookies",
