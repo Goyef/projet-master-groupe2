@@ -74,6 +74,12 @@ export const english: Texts = {
     seminarsEyebrow: "For businesses", seminarsTitle: "Seminars for your team",
     seminarsText: "Synégo also works with businesses on team cohesion, communication, conflict management and self-awareness.",
     seminarsCta: "Explore our seminars",
+    videoEyebrow: "In 30 seconds",
+    videoTitle: "Synégo at a glance",
+    videoDescription:
+      "A 30-second video without sound (in French): Synégo’s promise, the three-step approach (recognise, understand, move forward), then the journey, from booking a discovery call to the client area.",
+    videoPlay: "Play the video",
+    videoPause: "Pause the video",
   },
   cta: {
     title: "What if it all started with a conversation?",
