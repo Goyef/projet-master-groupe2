@@ -1140,6 +1140,58 @@ test(
       );
       assert.equal((await request("", bobReset, "GET")).data.user, null);
 
+      // Gestion des rendez-vous par le gérant : déplacer, annuler, supprimer (sans délai de 24 h).
+      const prospectId = booked.data.reference;
+      const owner = (payload) => request(payload, admin);
+      assert.equal(
+        (await request({ action: "owner-cancel", id: prospectId }, registeredSession)).response.status,
+        403,
+      );
+      assert.equal((await request("?action=slots&type=suivi", admin, "GET")).response.status, 200);
+      const freeForCall = (await request("?action=slots&type=vente", admin, "GET")).data.slots[0];
+      const ownerMoved = await owner({ action: "owner-reschedule", id: prospectId, slot: freeForCall.id });
+      assert.equal(ownerMoved.response.status, 200);
+      assert.equal(ownerMoved.data.starts, freeForCall.starts);
+      const ownerMoveMail = await mailTo("camille@example.test", "est déplacé");
+      assert.ok(ownerMoveMail.text.includes("Youcef a déplacé votre appel découverte"));
+      await eventually(
+        () => googleEvents.get(googleEventId(prospectId))?.start.dateTime === new Date(freeForCall.starts).toISOString(),
+        "déplacement du gérant non reporté dans Google",
+      );
+      // Annulation sans prévenir le client : aucun e-mail, créneau libéré.
+      const mailsBefore = mailsTo("camille@example.test").length;
+      assert.equal((await owner({ action: "owner-cancel", id: prospectId, notify: false })).response.status, 200);
+      assert.equal((await owner({ action: "owner-cancel", id: prospectId })).data.code, "alreadyCancelled");
+      await pause(500);
+      assert.equal(mailsTo("camille@example.test").length, mailsBefore);
+      assert.ok(
+        (await request("?action=slots&type=vente", admin, "GET")).data.slots.some((slot) => slot.id === freeForCall.id),
+      );
+      // Suppression définitive : le rendez-vous disparaît et l'événement Google est retiré.
+      assert.equal((await owner({ action: "owner-delete", id: prospectId })).response.status, 200);
+      assert.ok(!(await request("", admin, "GET")).data.appointments.some((item) => item.id === prospectId));
+      await eventually(
+        () => googleCalls.some((call) => call.method === "DELETE" && call.path.endsWith(googleEventId(prospectId))),
+        "suppression du gérant non reportée dans Google",
+      );
+      assert.equal((await owner({ action: "owner-delete", id: prospectId })).response.status, 404);
+      // Annulation avec e-mail au client (rendez-vous à venir d'un client inscrit).
+      const doubleId = twice[0].data.reference;
+      assert.equal((await owner({ action: "owner-cancel", id: doubleId })).response.status, 200);
+      const ownerCancelMail = await mailTo("inscrit@example.test", "est annulé");
+      assert.ok(ownerCancelMail.text.includes("Youcef a dû annuler votre séance de suivi"));
+      assert.equal(
+        (await request("", registeredSession, "GET")).data.appointments.find((item) => item.id === doubleId).status,
+        "cancelled",
+      );
+      // Le gérant voit si le rendez-vous vient d'un compte client ; le client ne reçoit pas ce champ.
+      const adminList = (await request("", admin, "GET")).data.appointments;
+      assert.equal(adminList.find((item) => item.id === doubleId).client, true);
+      assert.equal(
+        (await request("", registeredSession, "GET")).data.appointments.find((item) => item.id === doubleId).client,
+        undefined,
+      );
+
       // Mot de passe oublié : même réponse pour une adresse inconnue, sans e-mail.
       const forgot = (address) => request({ action: "forgot-password", email: address });
       assert.equal((await forgot("personne@example.test")).response.status, 200);
