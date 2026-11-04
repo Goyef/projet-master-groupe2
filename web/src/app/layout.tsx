@@ -50,6 +50,12 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s · ${siteConfig.name}`,
     },
     description: texts.meta.description,
+    // Ajout à l'écran d'accueil depuis Safari : nom sous l'icône et ouverture en plein écran.
+    appleWebApp: {
+      title: siteConfig.name,
+      capable: true,
+      statusBarStyle: "default",
+    },
     openGraph: {
       type: "website",
       locale: locale === "fr" ? "fr_FR" : "en_GB",
