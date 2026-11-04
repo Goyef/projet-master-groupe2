@@ -59,9 +59,17 @@ export function AuthPanel({ dict, portal }: { dict: Texts["portal"]; portal: Por
                       {errorFor("login", "email")}
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="login-password" data-invalid={isInvalid("login", "password")}>
-                        {dict.password}
-                      </FieldLabel>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <FieldLabel htmlFor="login-password" data-invalid={isInvalid("login", "password")}>
+                          {dict.password}
+                        </FieldLabel>
+                        <Link
+                          href="/mot-de-passe-oublie"
+                          className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        >
+                          {dict.forgotLink}
+                        </Link>
+                      </div>
                       <PasswordInput
                         id="login-password"
                         aria-invalid={isInvalid("login", "password")}
