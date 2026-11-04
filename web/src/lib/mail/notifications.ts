@@ -72,13 +72,14 @@ async function send(to: string, locale: Locale, site: string, subject: string, t
   return sendMail({ to, subject, html, text });
 }
 
-// Notification du gérant : sans signature, et les réponses vont au client concerné.
-async function sendToAdmin(subject: string, title: string, blocks: MailBlock[], site: string, replyTo?: string) {
+// Notification du gérant : sans signature. Pas de Reply-To vers le client (autre domaine que
+// l'expéditeur, motif d'hameçonnage) : son adresse figure dans le corps du message.
+async function sendToAdmin(subject: string, title: string, blocks: MailBlock[], site: string) {
   const to = adminRecipient();
   if (!to) return;
   const dict = getDictionary(ADMIN_LOCALE).emails;
   const { html, text } = renderMail({ dict, locale: ADMIN_LOCALE, site, title, blocks, internal: true });
-  return sendMail({ to, subject, html, text, replyTo });
+  return sendMail({ to, subject, html, text });
 }
 
 // Notification du gérant : qui, quand, comment le joindre.
@@ -109,7 +110,6 @@ async function notifyAdmin(
       { kind: "button", label: dict.openAdminArea, url: `${site}/connexion` },
     ],
     site,
-    row.email,
   );
 }
 
@@ -288,7 +288,6 @@ export async function mailTicketCreated(ticketId: number, site: string) {
       { kind: "button", label: dict.openAdminArea, url: `${site}/connexion` },
     ],
     site,
-    ticket.email,
   );
 }
 
@@ -311,5 +310,54 @@ export async function mailTicketReply(ticketId: number, message: string, site: s
       { kind: "button", label: copy.button, url: `${site}/connexion` },
     ],
     ticket.name,
+  );
+}
+
+// Rendez-vous annulé (ou supprimé) par le gérant : le client est prévenu. Reçoit le rendez-vous
+// tel qu'il était, car une suppression ne laisse plus rien en base. Le français est utilisé :
+// la langue du client n'est pas connue quand c'est le gérant qui agit.
+export async function mailCancelledByOwner(row: AppointmentRow, site: string) {
+  const locale: Locale = "fr";
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.ownerCancelled;
+  await send(
+    row.email,
+    locale,
+    site,
+    format(copy.subject, { date: details.date }),
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type), date: details.date }) },
+      { kind: "details", rows: details.rows },
+      { kind: "paragraph", text: row.userId ? copy.rebookClient : copy.rebookProspect },
+      { kind: "button", label: copy.book, url: `${site}${row.userId ? "/connexion" : "/rendez-vous"}` },
+    ],
+    row.userId ? row.firstName : personName(row),
+  );
+}
+
+// Rendez-vous déplacé par le gérant : nouveau créneau, ancien créneau, lien Google Agenda.
+export async function mailRescheduledByOwner(appointmentId: number, previousStarts: Date, site: string) {
+  const row = await loadAppointment(appointmentId);
+  if (!row) return;
+  const locale: Locale = "fr";
+  const dict = getDictionary(locale).emails;
+  const details = appointmentDetails(row, locale);
+  const copy = dict.ownerRescheduled;
+  await send(
+    row.email,
+    locale,
+    site,
+    format(copy.subject, { date: details.date }),
+    copy.title,
+    [
+      { kind: "paragraph", text: format(copy.intro, { type: inSentence(details.type) }) },
+      { kind: "details", rows: details.rows },
+      { kind: "note", text: format(copy.previous, { date: formatDateTime(previousStarts, locale) }) },
+      { kind: "button", label: dict.addToCalendar, url: calendarLink(row, locale, site) },
+      { kind: "paragraph", text: copy.contact },
+    ],
+    row.userId ? row.firstName : personName(row),
   );
 }

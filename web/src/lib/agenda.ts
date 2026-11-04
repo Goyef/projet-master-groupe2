@@ -139,13 +139,13 @@ export async function syncAppointment(id: number, site: string) {
   try {
     const database = await db();
     const [row] = await database.select().from(appointments).where(eq(appointments.id, id));
-    if (!row) return;
     const token = await accessToken(config);
     const events = `${config.apiUrl}/calendars/${encodeURIComponent(config.calendarId)}/events`;
-    const eventId = googleEventId(row.id);
+    const eventId = googleEventId(id);
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-    if (row.status === "cancelled") {
+    // Rendez-vous annulé, ou supprimé par le gérant : l'événement est retiré.
+    if (!row || row.status === "cancelled") {
       const removed = await fetch(`${events}/${eventId}`, { method: "DELETE", headers });
       // 404 / 410 : l'événement n'existait pas ou a déjà été supprimé.
       if (!removed.ok && removed.status !== 404 && removed.status !== 410)

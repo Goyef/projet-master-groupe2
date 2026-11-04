@@ -10,6 +10,8 @@ import {
   mailBookingCancelled,
   mailBookingConfirmed,
   mailBookingRescheduled,
+  mailCancelledByOwner,
+  mailRescheduledByOwner,
   mailPasswordReset,
   mailTicketCreated,
   mailTicketReply,
@@ -26,6 +28,7 @@ import {
   createClient,
   createTicket,
   currentUser,
+  deleteAppointment,
   getDocument,
   listAppointments,
   listClients,
@@ -35,6 +38,8 @@ import {
   login,
   logout,
   MAX_REQUIRED_SESSIONS,
+  ownerCancelAppointment,
+  ownerRescheduleAppointment,
   removeDocument,
   removeSlot,
   registerClient,
@@ -157,7 +162,8 @@ export async function GET(request: NextRequest) {
     const action = params.get("action");
     if (action === "slots") {
       const type = appointmentType(params.get("type"));
-      if (type === "suivi" && user?.role !== "client")
+      // Séances de suivi : visibles par les clients, et par le gérant (pour déplacer un rendez-vous).
+      if (type === "suivi" && user?.role !== "client" && user?.role !== "admin")
         return failure("clientRequired", 401);
       return response({ slots: await availableSlots(type) });
     }
@@ -364,6 +370,29 @@ export async function POST(request: NextRequest) {
     }
     if (data.action === "reset-client-password") {
       return response({ ok: true, password: await resetClientPassword(id(data.id)) });
+    }
+    // Rendez-vous gérés par le gérant : annuler, déplacer, supprimer. `notify` (vrai par défaut)
+    // prévient le client par e-mail ; Google Agenda est mis à jour dans tous les cas.
+    if (data.action === "owner-cancel" || data.action === "owner-reschedule" || data.action === "owner-delete") {
+      const appointmentId = id(data.id);
+      const notify = data.notify !== false;
+      if (data.action === "owner-reschedule") {
+        const moved = await ownerRescheduleAppointment(appointmentId, id(data.slot));
+        syncLater(request, appointmentId);
+        if (notify)
+          mailLater(request, (_locale, site) => mailRescheduledByOwner(appointmentId, moved.previousStarts, site));
+        return response({ ok: true, starts: moved.starts.getTime() });
+      }
+      const row =
+        data.action === "owner-cancel"
+          ? await ownerCancelAppointment(appointmentId)
+          : await deleteAppointment(appointmentId);
+      syncLater(request, appointmentId);
+      // Seul un rendez-vous encore à venir et confirmé justifie de prévenir le client.
+      const wasUpcoming =
+        row.starts.getTime() > Date.now() && (data.action === "owner-cancel" || row.status === "confirmed");
+      if (notify && wasUpcoming) mailLater(request, (_locale, site) => mailCancelledByOwner(row, site));
+      return response({ ok: true });
     }
     if (data.action === "toggle-client") {
       await toggleClient(id(data.id));
