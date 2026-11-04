@@ -388,10 +388,10 @@ export const english: Texts = {
           "Vercel Inc. (United States): hosts and runs the website; your data passes through its servers with each request.",
           "Neon, Inc. (United States, Databricks group): hosts the database, stored in the European Union (Frankfurt).",
           "Google LLC (United States), only if Youcef syncs appointments with Google Calendar: each appointment is sent with its type, date, your name, email address and phone number. “What brings you here” is never sent.",
-          "Puwapi (“Send” service): sends the website’s emails (appointment confirmation, rescheduling or cancellation, forgotten password, welcome, support replies). It receives your email address and the content of these messages; “What brings you here” is never included.",
+          "Resend, Inc. (United States): sends the website’s emails (appointment confirmation, rescheduling or cancellation, forgotten password, welcome, support replies). It receives your email address and the content of these messages; “What brings you here” is never included.",
         ],
       },
-      { title: "Transfers outside the European Union", text: "Vercel, Neon and Google are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
+      { title: "Transfers outside the European Union", text: "Vercel, Neon, Google and Resend are US companies, so access to your data from the United States cannot be ruled out. These transfers are covered by the European Commission’s standard contractual clauses in their data processing agreements and, where applicable, by the EU–US Data Privacy Framework." },
       { title: "Cookies", text: "The website only uses strictly necessary cookies, which do not require your consent: the client area session cookie (secure, inaccessible to scripts, valid for eight hours) and the synego-locale cookie, which remembers your chosen language for one year. Your chosen display theme is stored only in your browser (local storage). No advertising or analytics cookies are used." },
       {
         title: "Retention periods",
