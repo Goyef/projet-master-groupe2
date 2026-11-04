@@ -154,9 +154,11 @@ export const english: Texts = {
     launcher: "Any questions?",
     launcherLabel: "Open the assistant",
     title: "Synégo assistant",
+    status: "Virtual assistant · available 24/7",
     description: "Automatic answers about coaching, seminars, appointments and your account.",
+    greeting: "Hello!",
     welcome:
-      "Hello, I’m the Synégo website assistant. I can tell you about Youcef’s coaching, seminars, available time slots, booking or your client area. How can I help?",
+      "I’m the Synégo website assistant. I can tell you about Youcef’s coaching, seminars, available time slots, booking or your client area. How can I help?",
     suggestionsLabel: "Frequently asked questions",
     suggestions: [
       "How does the discovery call work?",

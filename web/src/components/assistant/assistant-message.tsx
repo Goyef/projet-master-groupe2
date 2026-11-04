@@ -5,10 +5,10 @@ import { CircleAlertIcon, RotateCcwIcon } from "lucide-react"
 import { CrisisResources } from "@/components/sections/crisis-resources"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 import type { Texts } from "@/content/texts"
 import { cn } from "@/lib/utils"
 
+import { AssistantAvatar } from "./assistant-avatar"
 import { AssistantMarkdown } from "./assistant-markdown"
 import { BookingProposal } from "./booking-proposal"
 import type { ChatEntry } from "./use-assistant-chat"
@@ -22,10 +22,42 @@ type AssistantMessageProps = {
   onNavigate: () => void
 }
 
-export function AssistantBubble({ children, className }: { children: React.ReactNode; className?: string }) {
+// Ligne de l'assistant : visage de la mascotte à gauche, contenu (bulle, cartes) à droite.
+export function AssistantRow({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("max-w-[92%] rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5 text-sm text-foreground", className)}>
-      {children}
+    <div className={cn("flex items-start gap-2.5", className)}>
+      <AssistantAvatar variant="face" className="mt-0.5 size-8 shadow-sm" />
+      <div className="min-w-0 flex-1 space-y-2">{children}</div>
+    </div>
+  )
+}
+
+export function AssistantBubble({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "w-fit max-w-full rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-sm text-card-foreground shadow-xs ring-1 ring-foreground/10",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+// Trois points qui rebondissent pendant que l'assistant prépare sa réponse.
+function TypingIndicator({ label }: { label: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="status">
+      <AssistantBubble className="flex items-center gap-1 px-3.5 py-3" aria-hidden>
+        {[0, 1, 2].map((dot) => (
+          <span
+            key={dot}
+            className="size-1.5 animate-bounce rounded-full bg-brand-sky motion-reduce:animate-none"
+            style={{ animationDelay: `${dot * 0.15}s` }}
+          />
+        ))}
+      </AssistantBubble>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   )
 }
@@ -33,8 +65,8 @@ export function AssistantBubble({ children, className }: { children: React.React
 export function AssistantMessage({ entry, dict, crisis, types, onRetry, onNavigate }: AssistantMessageProps) {
   if (entry.role === "user")
     return (
-      <div className="flex justify-end">
-        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-sm whitespace-pre-wrap text-primary-foreground">
+      <div className="flex justify-end pl-10">
+        <p className="max-w-full rounded-2xl rounded-tr-md bg-primary px-3.5 py-2.5 text-sm whitespace-pre-wrap text-primary-foreground shadow-xs">
           <span className="sr-only">{dict.you} : </span>
           {entry.content}
         </p>
@@ -44,26 +76,16 @@ export function AssistantMessage({ entry, dict, crisis, types, onRetry, onNaviga
   const waiting = entry.state === "streaming" && (!entry.content || entry.status)
   const empty = entry.state === "done" && !entry.content.trim() && entry.actions.length === 0
   return (
-    <div className="space-y-2">
+    <AssistantRow>
       {/* Les numéros d'urgence passent avant la réponse. */}
-      {entry.actions
-        .filter((action) => action.kind === "crisis")
-        .slice(0, 1)
-        .map((action) => (
-          <CrisisResources key={action.kind} dict={crisis} />
-        ))}
+      {entry.actions.some((action) => action.kind === "crisis") && <CrisisResources dict={crisis} className="bg-card" />}
       {(entry.content || empty) && (
         <AssistantBubble>
           <span className="sr-only">{dict.assistantName} : </span>
           {empty ? <p>{dict.empty}</p> : <AssistantMarkdown text={entry.content} onNavigate={onNavigate} />}
         </AssistantBubble>
       )}
-      {waiting && (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-          <Spinner className="size-3.5" aria-hidden />
-          {entry.status === "slots" ? dict.checkingSlots : dict.thinking}
-        </p>
-      )}
+      {waiting && <TypingIndicator label={entry.status === "slots" ? dict.checkingSlots : dict.thinking} />}
       {entry.state === "incomplete" && <p className="text-xs text-muted-foreground">{dict.incomplete}</p>}
       {entry.state === "error" && (
         <Alert variant="destructive">
@@ -89,6 +111,6 @@ export function AssistantMessage({ entry, dict, crisis, types, onRetry, onNaviga
           />
         ) : null,
       )}
-    </div>
+    </AssistantRow>
   )
 }

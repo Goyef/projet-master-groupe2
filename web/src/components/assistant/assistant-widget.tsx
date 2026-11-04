@@ -1,9 +1,10 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { ArrowUpIcon, MessageCircleIcon, SparklesIcon, SquareIcon, SquarePenIcon } from "lucide-react"
+import { ArrowRightIcon, ArrowUpIcon, SquareIcon, SquarePenIcon, XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,12 +14,22 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import type { Texts } from "@/content/texts"
 import { ASSISTANT_MESSAGE_MAX } from "@/lib/assistant/protocol"
 import { format } from "@/lib/format"
+import mascotImage from "../../../public/brand/assistant/mascotte.png"
 
-import { AssistantBubble, AssistantMessage } from "./assistant-message"
+import { AssistantAvatar } from "./assistant-avatar"
+import { AssistantBubble, AssistantMessage, AssistantRow } from "./assistant-message"
 import { useAssistantChat } from "./use-assistant-chat"
 
 export type AssistantWidgetProps = {
@@ -29,7 +40,11 @@ export type AssistantWidgetProps = {
   errors: { network: string; failed: string }
 }
 
-// Bouton flottant « Une question ? » et panneau de conversation, sur toutes les pages du site.
+// Boutons de l'en-tête, posés sur le fond de la couleur principale.
+const headerButton =
+  "text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground aria-expanded:bg-transparent"
+
+// Mascotte « Une question ? » en bas à droite de toutes les pages, et panneau de conversation.
 // La conversation suit la navigation (layout conservé) et reste dans l'onglet (sessionStorage).
 export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: AssistantWidgetProps) {
   const pathname = usePathname()
@@ -61,35 +76,54 @@ export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: Ass
       <SheetTrigger
         render={
           <Button
-            size="lg"
+            variant="ghost"
             aria-label={dict.launcherLabel}
-            className="fixed right-4 bottom-4 z-40 h-12 rounded-full px-4 shadow-lg print:hidden sm:right-6 sm:bottom-6"
+            className="group/launcher fixed right-4 bottom-4 z-40 h-auto gap-3 rounded-full p-0 hover:bg-transparent active:not-aria-[haspopup]:translate-y-0 aria-expanded:bg-transparent print:hidden sm:right-6 sm:bottom-6"
           />
         }
       >
-        <MessageCircleIcon data-icon="inline-start" className="size-5" />
-        <span className="hidden sm:inline">{dict.launcher}</span>
+        <span className="hidden animate-in rounded-2xl rounded-br-md bg-card px-4 py-2.5 text-sm font-medium text-card-foreground shadow-lg ring-1 ring-foreground/10 transition-transform duration-300 fade-in slide-in-from-right-3 group-hover/launcher:-translate-x-1 sm:block">
+          {dict.launcher}
+        </span>
+        {/* La mascotte salue une fois à l'arrivée sur le site (sauf mouvements réduits). */}
+        <span className="animate-assistant-wave motion-reduce:animate-none">
+          <AssistantAvatar
+            online
+            className="size-14 shadow-xl ring-4 ring-background transition-transform duration-300 group-hover/launcher:-translate-y-1 group-hover/launcher:scale-105 sm:size-16"
+          />
+        </span>
       </SheetTrigger>
       <SheetContent
         side="right"
-        closeLabel={closeLabel}
+        showCloseButton={false}
         // Au clavier ou à la souris, le curseur va dans le champ ; pas sur écran tactile (clavier virtuel).
         initialFocus={(openType) => (openType === "touch" ? true : inputRef.current)}
-        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+        className="gap-0 overflow-hidden p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
       >
-        <SheetHeader className="flex-row items-start gap-3 border-b pr-12">
-          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-primary dark:text-brand-sky">
-            <SparklesIcon className="size-4" aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <SheetTitle className="text-lg">{dict.title}</SheetTitle>
-            <SheetDescription>{dict.description}</SheetDescription>
+        <SheetHeader className="flex-row items-center gap-3 bg-primary px-4 py-3.5 text-primary-foreground">
+          <AssistantAvatar online className="size-11 ring-2 ring-primary-foreground/25" />
+          <div className="min-w-0 flex-1">
+            <SheetTitle className="text-lg leading-tight text-primary-foreground">{dict.title}</SheetTitle>
+            <p className="truncate text-xs text-primary-foreground/75">{dict.status}</p>
+            <SheetDescription className="sr-only">{dict.description}</SheetDescription>
           </div>
           {entries.length > 0 && (
-            <Button variant="ghost" size="icon-sm" onClick={reset} aria-label={dict.newConversation} title={dict.newConversation}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={headerButton}
+              onClick={reset}
+              aria-label={dict.newConversation}
+              title={dict.newConversation}
+            >
               <SquarePenIcon />
             </Button>
           )}
+          <SheetClose
+            render={<Button variant="ghost" size="icon-sm" className={headerButton} aria-label={closeLabel} title={closeLabel} />}
+          >
+            <XIcon />
+          </SheetClose>
         </SheetHeader>
 
         <div
@@ -102,50 +136,71 @@ export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: Ass
             const log = event.currentTarget
             followRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 80
           }}
-          className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4"
+          className="flex-1 space-y-5 overflow-y-auto overscroll-contain bg-muted/40 px-4 py-5"
         >
-          <AssistantBubble>
-            <p>{dict.welcome}</p>
-          </AssistantBubble>
-          {entries.length === 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">{dict.suggestionsLabel}</p>
-              <div className="flex flex-wrap gap-2">
+          {entries.length === 0 ? (
+            <div className="flex flex-col items-center text-center">
+              <div className="relative">
+                <span
+                  aria-hidden
+                  className="absolute inset-x-4 top-12 bottom-2 rounded-full bg-brand-diamond blur-2xl dark:bg-brand-sky/30"
+                />
+                <Image
+                  src={mascotImage}
+                  alt=""
+                  sizes="140px"
+                  className="relative h-44 w-auto animate-assistant-float drop-shadow-xl motion-reduce:animate-none"
+                />
+              </div>
+              <p className="mt-4 font-heading text-2xl font-semibold">{dict.greeting}</p>
+              <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{dict.welcome}</p>
+              <div className="mt-6 w-full space-y-2 text-left">
+                <p className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{dict.suggestionsLabel}</p>
                 {dict.suggestions.map((suggestion) => (
                   <Button
                     key={suggestion}
                     variant="outline"
-                    size="sm"
-                    className="h-auto py-1.5 text-left whitespace-normal"
+                    className="h-auto w-full justify-between gap-3 rounded-xl bg-card px-3.5 py-2.5 text-left font-normal whitespace-normal shadow-xs hover:border-brand-sky"
                     onClick={() => submit(suggestion)}
                   >
-                    {suggestion}
+                    <span>{suggestion}</span>
+                    <ArrowRightIcon data-icon="inline-end" className="text-brand-sky" />
                   </Button>
                 ))}
               </div>
             </div>
+          ) : (
+            <>
+              <AssistantRow>
+                <AssistantBubble>
+                  <p>
+                    <strong className="font-semibold">{dict.greeting}</strong> {dict.welcome}
+                  </p>
+                </AssistantBubble>
+              </AssistantRow>
+              {entries.map((entry) => (
+                <AssistantMessage
+                  key={entry.id}
+                  entry={entry}
+                  dict={dict}
+                  crisis={crisis}
+                  types={types}
+                  onRetry={retry}
+                  onNavigate={close}
+                />
+              ))}
+            </>
           )}
-          {entries.map((entry) => (
-            <AssistantMessage
-              key={entry.id}
-              entry={entry}
-              dict={dict}
-              crisis={crisis}
-              types={types}
-              onRetry={retry}
-              onNavigate={close}
-            />
-          ))}
         </div>
 
         <form
-          className="space-y-2 border-t p-3"
+          className="space-y-2 border-t bg-background p-3"
           onSubmit={(event) => {
             event.preventDefault()
             submit(draft)
           }}
         >
-          <InputGroup>
+          <InputGroup className="rounded-2xl bg-card shadow-xs">
             <InputGroupTextarea
               ref={inputRef}
               value={draft}
@@ -161,14 +216,21 @@ export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: Ass
               maxLength={ASSISTANT_MESSAGE_MAX}
               placeholder={dict.placeholder}
               aria-label={dict.inputLabel}
-              className="max-h-40 min-h-11"
+              className="max-h-40 min-h-11 px-3.5"
             />
             <InputGroupAddon align="block-end" className="justify-between">
               <InputGroupText className="text-xs tabular-nums" aria-hidden={length < ASSISTANT_MESSAGE_MAX * 0.8}>
                 {length >= ASSISTANT_MESSAGE_MAX * 0.8 ? format(dict.counter, { count: length, max: ASSISTANT_MESSAGE_MAX }) : ""}
               </InputGroupText>
               {busy ? (
-                <InputGroupButton size="icon-sm" variant="outline" onClick={stop} aria-label={dict.stop} title={dict.stop}>
+                <InputGroupButton
+                  size="icon-sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={stop}
+                  aria-label={dict.stop}
+                  title={dict.stop}
+                >
                   <SquareIcon className="fill-current" />
                 </InputGroupButton>
               ) : (
@@ -176,6 +238,7 @@ export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: Ass
                   type="submit"
                   size="icon-sm"
                   variant="default"
+                  className="rounded-full"
                   disabled={!draft.trim()}
                   aria-label={dict.send}
                   title={dict.send}
@@ -185,7 +248,7 @@ export function AssistantWidget({ dict, crisis, types, closeLabel, errors }: Ass
               )}
             </InputGroupAddon>
           </InputGroup>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-center text-[11px] leading-snug text-muted-foreground">
             {dict.disclaimer}{" "}
             <Link href="/confidentialite" onClick={close} className="underline underline-offset-4 hover:no-underline">
               {dict.privacyLink}

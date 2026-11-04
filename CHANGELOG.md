@@ -6,7 +6,7 @@ Les évolutions notables du site sont consignées ici. Format inspiré de [Keep 
 
 ### Ajouté
 
-- **Assistant IA « Une question ? »** sur toutes les pages, propulsé par `gpt-6.1-terra` (OpenAI, API Responses en flux) : réponses fondées sur tout le contenu et le fonctionnement du site, générés à partir des dictionnaires et des règles métier ; créneaux disponibles lus en direct ; carte de réservation qui préremplit le type de rendez-vous et, au choix, « Ce qui vous amène » ; encart des numéros d'urgence en cas de détresse ; français et anglais ; conversation conservée dans l'onglet ; limites de débit et plafond quotidien ; désactivé sans `OPENAI_API_KEY`.
+- **Assistant IA « Une question ? »** sur toutes les pages, incarné par une mascotte aux couleurs de Synégo et propulsé par `gpt-6.1-terra` (OpenAI, API Responses en flux) : réponses fondées sur tout le contenu et le fonctionnement du site, générés à partir des dictionnaires et des règles métier ; créneaux disponibles lus en direct ; carte de réservation qui préremplit le type de rendez-vous et, au choix, « Ce qui vous amène » ; encart des numéros d'urgence en cas de détresse ; français et anglais ; conversation conservée dans l'onglet ; limites de débit et plafond quotidien ; désactivé sans `OPENAI_API_KEY`.
 - Auto-évaluation « Où en êtes-vous ? », liste d'attente, rappels la veille, journal d'humeur, préparation et comptes rendus de séance (PR #33).
 - Lien Google Meet pour chaque rendez-vous en visio (PR #33).
 - Icône d'écran d'accueil iPhone et manifeste d'application web (PR #32).

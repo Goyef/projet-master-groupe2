@@ -226,9 +226,11 @@ export const texts = {
     launcher: "Une question ?",
     launcherLabel: "Ouvrir l’assistant",
     title: "Assistant Synégo",
+    status: "Assistant virtuel · disponible 24 h/24",
     description: "Réponses automatiques sur l’accompagnement, les séminaires, les rendez-vous et votre espace.",
+    greeting: "Bonjour !",
     welcome:
-      "Bonjour, je suis l’assistant du site Synégo. Je peux vous renseigner sur l’accompagnement de Youcef, les séminaires, les créneaux disponibles, la réservation ou votre espace client. Que puis-je faire pour vous ?",
+      "Je suis l’assistant du site Synégo. Je peux vous renseigner sur l’accompagnement de Youcef, les séminaires, les créneaux disponibles, la réservation ou votre espace client. Que puis-je faire pour vous ?",
     suggestionsLabel: "Questions fréquentes",
     suggestions: [
       "Comment se passe l’appel découverte ?",
