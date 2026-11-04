@@ -53,22 +53,20 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Vidéo de présentation : le site et l'approche en 30 secondes, juste sous l'accroche. */}
-      {/* Pleine largeur et rognée horizontalement : le halo du cadre ne crée pas de défilement latéral. */}
-      <section aria-labelledby="video-titre" className="overflow-x-clip pb-20 md:pb-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="mb-10 space-y-2 text-center">
-            <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.videoEyebrow}</p>
-            <h2 id="video-titre" className="text-4xl font-semibold">
-              {home.videoTitle}
-            </h2>
-          </div>
-          <PromoVideo
-            src="/video/synego-promo.mp4"
-            poster={promoPoster.src}
-            labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
-          />
+      {/* Vidéo de présentation en grand, sans cadre : le site et l'approche en 30 secondes, juste sous l'accroche. */}
+      <section aria-labelledby="video-titre" className="pb-12 md:pb-16">
+        <div className="mx-auto max-w-6xl space-y-2 px-4 text-center sm:px-6">
+          <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.videoEyebrow}</p>
+          <h2 id="video-titre" className="text-4xl font-semibold">
+            {home.videoTitle}
+          </h2>
         </div>
+        <PromoVideo
+          src="/video/synego-promo.mp4"
+          poster={promoPoster.src}
+          labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
+          className="mx-auto max-w-screen-2xl"
+        />
       </section>
 
       <section id="approche" className="scroll-mt-20 border-y bg-card">
