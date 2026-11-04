@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
-import { AppointmentActions } from "./appointment-actions"
+import { AppointmentActions, QUIET_ON_PRIMARY } from "./appointment-actions"
 import { OpenSessionActions, PreparationBadge, PreparationDialog, SessionReportDialog } from "./session-notes"
 import { MoodJournal } from "./mood-journal"
 import { ClientSupport } from "./support-tickets"
@@ -130,7 +130,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
 
       <Card className="bg-primary text-primary-foreground ring-0">
         <CardHeader>
-          <CardDescription className="text-xs font-medium tracking-widest text-primary-foreground/75 uppercase">
+          <CardDescription className="text-sm font-medium text-primary-foreground/75">
             {text.nextTitle}
           </CardDescription>
           {next ? (
@@ -147,11 +147,17 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                 {types[next.type]} · {duration(next)} · {formats[next.format]}
               </p>
               <div className="flex flex-wrap items-center gap-2">
+                {/* En visio, « Rejoindre » est l'action principale : les autres passent en discret. */}
                 {joinMeet(next, "secondary")}
-                <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(next)} variant="secondary" />
-                <PreparationDialog appointment={next} {...notesProps} inverted />
+                <AddToCalendar
+                  dict={bookingDict.calendar}
+                  appointment={calendarEntry(next)}
+                  variant={next.meetUrl ? "ghost" : "secondary"}
+                  className={next.meetUrl ? QUIET_ON_PRIMARY : undefined}
+                />
+                <PreparationDialog appointment={next} {...notesProps} inverted quiet={Boolean(next.meetUrl)} />
                 {next.changeable ? (
-                  <AppointmentActions appointment={next} {...actionProps} inverted />
+                  <AppointmentActions appointment={next} {...actionProps} inverted quiet={Boolean(next.meetUrl)} />
                 ) : (
                   <p className="text-sm text-primary-foreground/75">{text.tooLate}</p>
                 )}
@@ -259,7 +265,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3 rounded-lg border p-4">
-                <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">{text.journeyTitle}</p>
+                <p className="text-sm font-medium text-muted-foreground">{text.journeyTitle}</p>
                 {goal > 0 ? (
                   <Progress value={Math.min(done, goal)} max={goal}>
                     <ProgressLabel>{format(text.journeyDone, { count: done })}</ProgressLabel>

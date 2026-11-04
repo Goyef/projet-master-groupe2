@@ -25,6 +25,7 @@ import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
+import { QUIET_ON_PRIMARY } from "./appointment-actions"
 import type { Appointment, Portal } from "./use-portal"
 
 // Préparation de séance (client), compte rendu et actions (rédigés par le gérant, cochés par le client).
@@ -59,10 +60,12 @@ type ClientProps = {
   portal: Portal
   // Boutons clairs sur fond foncé (carte « prochain rendez-vous »).
   inverted?: boolean
+  // Sur fond foncé, bouton discret quand une autre action est principale.
+  quiet?: boolean
 }
 
 // « Ce que j'aimerais aborder » : modifiable jusqu'au début du rendez-vous (vérifié par le serveur).
-export function PreparationDialog({ appointment, dict, types, portal, inverted }: ClientProps) {
+export function PreparationDialog({ appointment, dict, types, portal, inverted, quiet }: ClientProps) {
   const formatDateTime = useDateFormatter()
   const { act, busy, feedbackFor, errorFor, isInvalid, setMessage } = portal
   const saved = sessionNoteFor(portal, appointment.id)?.preparation ?? ""
@@ -89,7 +92,15 @@ export function PreparationDialog({ appointment, dict, types, portal, inverted }
         if (!next) setMessage(null)
       }}
     >
-      <DialogTrigger render={<Button size="sm" variant={inverted ? "secondary" : "outline"} />}>
+      <DialogTrigger
+        render={
+          inverted && quiet ? (
+            <Button size="sm" variant="ghost" className={QUIET_ON_PRIMARY} />
+          ) : (
+            <Button size="sm" variant={inverted ? "secondary" : "outline"} />
+          )
+        }
+      >
         <NotebookPenIcon data-icon="inline-start" />
         {saved ? dict.prepareEdit : dict.prepare}
       </DialogTrigger>
