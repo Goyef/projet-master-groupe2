@@ -11,6 +11,7 @@ export type NavKey = keyof Texts["nav"]
 
 export const mainNav = [
   { key: "home", href: "/" },
+  { key: "selfCheck", href: "/auto-evaluation" },
   { key: "seminars", href: "/seminaires" },
   { key: "booking", href: "/rendez-vous" },
 ] as const satisfies readonly { key: NavKey; href: string }[]

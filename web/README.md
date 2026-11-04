@@ -26,8 +26,8 @@ pnpm dev              # http://localhost:3000
 | `pnpm build`       | Build de production                                    |
 | `pnpm start`       | Lance le build de production                           |
 | `pnpm lint`        | Vérification ESLint                                    |
-| `pnpm test`        | Test d'intégration (après `pnpm build`, Postgres lancé) |
-| `pnpm test:i18n`   | Traductions, routes et erreurs bilingues, après le build ; sans Postgres |
+| `pnpm test`        | Tests d'intégration (après `pnpm build`, Postgres lancé) |
+| `pnpm test:i18n`   | Traductions, routes et erreurs bilingues, questionnaire, témoignages, après le build ; sans Postgres |
 | `pnpm db:up`       | Démarre le Postgres de développement                   |
 | `pnpm db:generate` | Génère une migration après modification du schéma      |
 
@@ -60,13 +60,25 @@ pnpm dev              # http://localhost:3000
   - Dans les deux cas côté gérant, l'événement contient le type, le nom, l'e-mail et le téléphone, mais jamais « ce qui vous amène ». Calendly n'est pas utilisé : la prise de rendez-vous reste celle du site.
 
 - **E-mails** (API [Resend](https://resend.com), expéditeur `noreply@abdu.fr`) : chaque e-mail a une version HTML (charte du site, tableaux et styles en ligne pour les messageries) et une version texte.
-  - **Client ou prospect** : confirmation de rendez-vous (avec lien Google Agenda), déplacement, annulation, bienvenue après inscription, lien « choisir mon mot de passe » quand le gérant crée le compte (valable 7 jours), réponse du gérant à une demande de support.
+  - **Client ou prospect** : confirmation de rendez-vous (avec lien Google Agenda), déplacement, annulation, bienvenue après inscription, lien « choisir mon mot de passe » quand le gérant crée le compte (valable 7 jours), réponse du gérant à une demande de support, rappel la veille du rendez-vous, alerte de liste d'attente, compte rendu de séance disponible (sans son contenu).
   - **Gérant** (`MAIL_ADMIN_TO`, sinon `ADMIN_EMAIL`) : nouveau rendez-vous, déplacement, annulation, nouvelle demande de support. L'adresse e-mail du client figure dans la notification : pour lui répondre, écrivez-lui directement (pas de Reply-To vers son adresse).
   - Les e-mails partent **après la réponse** (`after`) : un retard ou une panne de Resend ne bloque jamais une réservation (l'erreur est journalisée, adresse masquée). Une même réservation reçue deux fois n'envoie qu'une confirmation.
-  - Langue : celle de l'interface pour les actions du visiteur ; français pour les notifications du gérant et les e-mails déclenchés par lui. « Ce qui vous amène » n'est jamais repris dans un e-mail ; tout contenu saisi est échappé dans le HTML.
+  - Langue : celle de l'interface pour les actions du visiteur ; français pour les notifications du gérant et les e-mails déclenchés par lui, sauf le rappel de la veille et l'e-mail de compte rendu, qui partent dans la langue enregistrée avec le rendez-vous (colonne `locale`, renseignée à la réservation et au déplacement par le client). « Ce qui vous amène » n'est jamais repris dans un e-mail ; tout contenu saisi est échappé dans le HTML.
 - **Mot de passe oublié** (`/mot-de-passe-oublie`, lien sous le champ mot de passe de `/connexion`) : un e-mail contient un lien valable **1 heure**, à usage unique (seul le hash du jeton est stocké, table `password_resets`). La réponse est la même que l'adresse ait un compte ou non, et 3 demandes au plus par quart d'heure partent pour une même adresse. Sur `/reinitialiser-mot-de-passe`, le nouveau mot de passe ferme les autres sessions et connecte directement le client.
 
-Hors périmètre (décision de l'équipe) : rappels automatiques la veille du rendez-vous (nécessiteraient une tâche planifiée), paiement.
+### Accompagner entre les séances et convertir les visiteurs
+
+- **Auto-évaluation** (`/auto-evaluation`, dans la navigation et depuis la section « Vous reconnaissez-vous ? » de l'accueil) : questionnaire « Où en êtes-vous ? » de 10 questions (jamais / parfois / souvent / presque toujours), une question par écran avec barre de progression et retour arrière, utilisable au clavier. Le résultat tient en trois paliers formulés avec douceur, sans score ni diagnostic (« Ce questionnaire n'est pas un outil médical… »), et chacun propose de réserver un appel découverte. Rien n'est envoyé au serveur ni enregistré : tout reste dans le navigateur. Si la personne coche « Joindre un résumé de mes réponses » (décochée par défaut), un résumé court est repris dans le champ « Ce qui vous amène » de `/rendez-vous`, où elle peut le modifier avant d'envoyer. Logique dans `src/lib/quiz.ts`, textes dans la section `quiz` des dictionnaires.
+- **Ressources d'urgence** : le pied de page de toutes les pages et le résultat du questionnaire affichent un encart sobre : 3114 (numéro national de prévention du suicide, gratuit, 24 h/24, 7 j/7), 15 ou 112 en cas d'urgence vitale, avec liens `tel:`. En anglais, les numéros restent les numéros français et le texte précise « in France ». Composant : `src/components/sections/crisis-resources.tsx`.
+- **Configurateur de séminaire** (`/seminaires#configurateur`) : en quatre étapes (taille de l'équipe, thèmes, format, objectif facultatif), l'entreprise esquisse son séminaire et voit un récapitulatif, sans prix (le devis se construit pendant l'audit). Le bouton « Réserver un audit · 45 minutes » préremplit la demande d'audit sur `/rendez-vous`. Rien n'est envoyé au serveur à cette étape.
+- **Préremplissage de la réservation** : le questionnaire et le configurateur écrivent dans `sessionStorage` la clé `synego:booking-prefill`, au format JSON `{ "type"?: "vente" | "audit", "intention": string }` (jamais dans l'URL : le texte peut être sensible). Au montage, le formulaire lit cette valeur une seule fois puis l'efface : il présélectionne le type, remplit l'intention (coupée à 1 000 caractères, la limite du serveur) et l'indique par un court message. Fonctions dans `src/lib/booking-prefill.ts`.
+- **Témoignages** : section réutilisable (`src/components/sections/testimonials.tsx`) sur l'accueil (accompagnement) et sur `/seminaires` (entreprises), alimentée par `testimonials.coaching` et `testimonials.companies` dans `texts.ts` et `en.ts` (citation, prénom ou initiales, contexte facultatif). Les listes sont vides et la section est masquée tant qu'elles le restent : n'y ajouter que des témoignages réels, avec l'accord écrit des personnes, dans le même ordre en français et en anglais.
+- **Liste d'attente** (« Prévenez-moi si un créneau se libère ») : sous le choix du créneau de `/rendez-vous` et de l'onglet « Réserver » de l'espace client, un petit formulaire (e-mail, rendez-vous concerné, accord sur les données) inscrit le visiteur, avec ou sans compte (le suivi est réservé aux clients connectés) ; il est mis en avant quand aucun créneau n'est disponible pour le type choisi. Une inscription vaut pour **une alerte** et expire après **30 jours** (table `waitlist_entries`, une ligne par adresse et par type : se réinscrire met l'inscription à jour, avec une réponse identique dans tous les cas, et 5 demandes au plus par quart d'heure pour une même adresse). Quand un créneau redevient réservable (annulation ou déplacement par le client ou le gérant, suppression d'un rendez-vous, ajout de disponibilités), les inscrits de ce type encore en attente reçoivent après la réponse un e-mail « Un créneau vient de se libérer » dans la langue de l'inscription, avec les créneaux (heure de Paris), le lien de réservation et la règle « premier arrivé, premier servi », puis sont marqués prévenus. Seuls les créneaux encore libres qui commencent dans plus de 2 heures comptent. Chaque e-mail contient un lien de désinscription à usage unique (seul le hash du jeton est stocké ; le lien du dernier e-mail fait foi) vers `/liste-attente/desinscription`, où la personne confirme d'un clic. Le tableau de bord du gérant affiche le nombre de personnes en attente par type.
+- **Rappel la veille** : chaque jour vers 16 h UTC (tâche planifiée Vercel déclarée dans `vercel.json`, une fois par jour sur l'offre Hobby), `GET /api/cron/rappels` envoie un rappel à chaque rendez-vous confirmé dont le début tombe le lendemain (date de Paris) : date et heure de Paris, durée, type, lien Google Meet s'il existe, bouton « Ajouter à Google Agenda » et règle d'annulation (24 h), jamais « ce qui vous amène ». La route exige `Authorization: Bearer <CRON_SECRET>` : définir `CRON_SECRET` dans Vercel suffit, Vercel l'envoie de lui-même à la tâche ; sans cette variable, la route est désactivée (503). Un même rendez-vous n'est rappelé qu'une fois, même si la tâche est appelée deux fois (`reminder_sent_at`), et un déplacement permet un nouveau rappel. Un envoi refusé par Resend est journalisé (adresse masquée) et réessayé au prochain appel du jour ; un appel manqué n'est pas rattrapé. La réponse ne contient que des compteurs (`sent`, `skipped`, `failed`). Déclenchement à la main : `curl -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/rappels`.
+- **Journal d'humeur** (« météo intérieure ») : depuis l'onglet « Journal » de son espace, le client note chaque jour sa météo intérieure sur cinq niveaux (orage, pluie, nuageux, éclaircies, soleil), avec une note facultative de 500 caractères. Une seule entrée par jour (date de Paris) : enregistrer à nouveau remplace celle du jour. Il voit les 30 derniers jours en barres et la liste de ses entrées, qu'il peut modifier ou supprimer. Le gérant retrouve les 14 derniers jours d'un client (barres et dernières notes) dans le panneau d'un rendez-vous rattaché à un compte, et via le bouton « Journal » de la carte « Comptes clients ». Seuls le client et le gérant y ont accès ; le journal n'est jamais repris dans un e-mail ni dans Google Agenda. Table `mood_entries` (unique par client et par jour, supprimée avec le compte).
+- **Préparation et compte rendu de séance** : pour chacun de ses rendez-vous confirmés à venir, le client connecté note « Ce que j'aimerais aborder » (1 000 caractères au plus), modifiable jusqu'à l'heure de début (règle vérifiée côté serveur). Le gérant la lit dans le panneau du rendez-vous. Une fois la séance marquée « réalisée », il y rédige un compte rendu (3 000 caractères au plus) et jusqu'à 5 actions à faire d'ici la prochaine séance, modifiables ensuite (une action conservée garde son état). Le client lit le compte rendu depuis le rendez-vous passé et coche ses actions ; le gérant voit l'état des cases, et les actions encore ouvertes de la dernière séance sont mises en avant dans le tableau de bord du client. À la première publication, le client reçoit l'e-mail « Votre compte rendu de séance est disponible », avec un lien vers son espace mais sans le contenu. Un rendez-vous pris sans compte n'a pas cette fonction. Colonne `appointments.preparation`, tables `session_notes` et `session_actions` (supprimées avec le rendez-vous).
+
+Hors périmètre (décision de l'équipe) : paiement.
 
 ### Configurer l'envoi d'e-mails (Resend)
 
@@ -77,6 +89,7 @@ Hors périmètre (décision de l'équipe) : rappels automatiques la veille du re
 | `MAIL_FROM_NAME`       | Nom affiché (`Youcef · Synégo` par défaut)                                                    |
 | `MAIL_REPLY_TO`        | Facultatif : adresse de réponse (ex. `contact@abdu.fr`), **sur le même domaine que `MAIL_FROM`**, sinon ignorée (avertissement dans les journaux). Sans elle, aucun Reply-To n'est envoyé. |
 | `MAIL_ADMIN_TO`        | Destinataire des notifications du gérant (sinon `ADMIN_EMAIL`)                               |
+| `CRON_SECRET`          | Secret de la tâche planifiée des rappels de la veille (`openssl rand -hex 24`), envoyé automatiquement par Vercel ; vide = rappels désactivés |
 | `SITE_URL`             | Adresse publique du site, pour les liens et le logo des e-mails                               |
 
 Mise en place, une fois :
@@ -140,6 +153,14 @@ pnpm test
 
 Le test démarre un serveur de production sur le port 43127 avec une **base Postgres temporaire** (créée puis supprimée ; `TEST_DATABASE_URL` pour utiliser un autre serveur). Il vérifie les pages, la validation des champs de réservation, les réservations concurrentes, la même réservation envoyée deux fois (confirmée, et toujours refusée à une autre personne), l'annulation et le déplacement par le client (délai de 24 h, créneau libéré, rendez-vous d'un autre client inaccessible), l'inscription libre (accord et mot de passe exigés, e-mail unique, session ouverte), la création des comptes par le gérant (refusée à un client et à un visiteur), le mot de passe provisoire et sa réinitialisation, le profil et le mot de passe, les accès gérant/client, le libellé du bouton d'accès de l'en-tête selon la session, la gestion des rendez-vous par le gérant (déplacement sans délai de 24 h avec e-mail au client, annulation avec ou sans e-mail, suppression définitive, événement Google mis à jour ou retiré, actions refusées à un client), les e-mails (contre un faux serveur Resend qui vérifie la clé et le format de l'expéditeur : confirmation, notification du gérant avec réponse au client, pas de doublon, déplacement, annulation, bienvenue, lien de création de compte, support, contenu échappé, version texte), le mot de passe oublié (réponse identique pour une adresse inconnue, 3 demandes au plus, lien à usage unique, sessions fermées, compte désactivé refusé), les documents privés, le partage avec plusieurs clients ou avec tous (destinataire obligatoire, client inconnu ou gérant refusé, doublons ignorés, autres destinataires masqués au client), le déblocage progressif des documents (refus avant la séance requise, accès une fois la séance marquée réalisée), les demandes de support (dépôt, isolation entre clients, réponse et clôture par le gérant), les agendas (lien d'abonnement secret sans l'intention ni les rendez-vous annulés ; synchronisation Google de la réservation, du déplacement et de l'annulation, et du lien Google Meet — créé une fois, même en différé, conservé au déplacement, présent dans les e-mails et l'espace client — contre un faux serveur Google qui vérifie le jeton OAuth), la désactivation et la déconnexion. `TEST_PORT` permet de changer le port si 43127 est occupé.
 
+`pnpm test` lance aussi, l'un après l'autre et chacun avec sa base temporaire :
+- `tests/journal.test.mjs` : journal d'humeur (entrée du jour remplacée, validation, isolation entre clients, lecture par le gérant sans écriture, refus pour un visiteur, suppression en cascade avec le compte) ;
+- `tests/seances.test.mjs` : préparation (refusée après le début et aux autres comptes), compte rendu réservé au gérant sur une séance réalisée, actions cochées par le bon client seulement, e-mail unique et sans contenu ;
+- `tests/liste-attente.test.mjs` : inscription, alertes à l'annulation et à l'ajout de créneaux, pas de double alerte, règle des 2 heures, limite de débit, désinscription ;
+- `tests/rappels.test.mjs` : jeton exigé, rappel du lendemain seulement, idempotence sur double appel, nouveau rappel après déplacement, langue, échec Resend réessayé.
+
+`pnpm test:i18n` lance aussi `tests/self-assessment.test.mjs` (paliers du questionnaire, résumé, contrat de préremplissage, numéros d'urgence dans les deux langues) et `tests/sections.test.mjs` (témoignages masqués sans données, récapitulatif du configurateur). `I18N_TEST_PORT` change le port du serveur de ces tests.
+
 ## Structure
 
 ```
@@ -147,10 +168,13 @@ src/
 ├── app/
 │   ├── layout.tsx            # Layout racine, langue, polices et métadonnées
 │   ├── (site)/               # Pages publiques en français et anglais
-│   └── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
+│   ├── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
+│   └── api/cron/rappels/     # Tâche planifiée : rappels de la veille
 ├── components/
 │   ├── account/              # Connexion, espace client, espace gérant, support
-│   ├── booking/              # Formulaire de réservation, sélecteur de créneaux
+│   ├── booking/              # Formulaire de réservation, sélecteur de créneaux, liste d'attente
+│   ├── quiz/                 # Questionnaire d'auto-évaluation
+│   ├── seminars/             # Configurateur de séminaire
 │   ├── layout/               # En-tête, pied de page, logo, menu mobile
 │   ├── i18n/                 # Langue, apparence, dates et requêtes API
 │   ├── legal/                # Pages légales
@@ -160,7 +184,10 @@ src/
 ├── content/                  # Dictionnaires français et anglais
 ├── db/schema.ts              # Schéma Drizzle
 └── lib/
+    ├── booking-prefill.ts    # Préremplissage du formulaire de réservation
     ├── format.ts             # Dates (heure de Paris) et gabarits de texte
+    ├── quiz.ts               # Paliers et résumé du questionnaire
+    ├── waitlist.ts           # Liste d'attente
     └── store.ts              # Accès aux données
 ```
 
@@ -198,5 +225,8 @@ Le thème est porté par l'attribut `data-theme` de `<html>`, le mode sombre par
 - Inscription libre : tout inscrit peut réserver une séance de suivi, alors que le cahier des charges réserve le suivi aux clients signés. À valider avec Youcef (garder l'inscription, ou la limiter, par exemple avec une validation du compte par le gérant).
 - Comptes clients : à quel moment Youcef crée le compte (après l'appel découverte, à la signature du devis ?) et par quel canal il transmet le mot de passe provisoire. Le recueil du consentement du client à la création de son compte se fait hors du site et reste à formaliser. Pas de « mot de passe oublié » en libre-service : le client demande un nouveau mot de passe provisoire à Youcef.
 - Place exacte des séminaires par rapport au coaching.
+- Questionnaire d'auto-évaluation : formulation des questions et des paliers, à relire par Youcef.
+- Témoignages : en recueillir avec l'accord écrit des personnes avant de les publier.
+- Rappels de la veille : définir `CRON_SECRET` dans Vercel pour les activer.
 - Pages légales et confidentialité (le champ « intention » peut contenir des informations sensibles).
 - Hébergement : Postgres installé sur le serveur, sauvegardes et HTTPS.

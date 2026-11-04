@@ -20,6 +20,8 @@ import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
 import { AppointmentActions } from "./appointment-actions"
+import { OpenSessionActions, PreparationBadge, PreparationDialog, SessionReportDialog } from "./session-notes"
+import { MoodJournal } from "./mood-journal"
 import { ClientSupport } from "./support-tickets"
 import type { Appointment, Portal } from "./use-portal"
 
@@ -31,7 +33,7 @@ type ClientDashboardProps = {
   portal: Portal
 }
 
-type Section = "appointments" | "book" | "documents" | "support" | "profile"
+type Section = "appointments" | "book" | "documents" | "journal" | "support" | "profile"
 type Filter = "upcoming" | "past" | "cancelled"
 
 // Espace client : prochain rendez-vous, gestion des rendez-vous, réservation, documents, support et profil.
@@ -60,6 +62,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
     cancelled: text.emptyCancelled,
   }
   const actionProps = { dict: text, types, loadingLabel: bookingDict.form.loading, portal }
+  const notesProps = { dict: dict.sessionNotes, types, portal }
 
   const statusOf = (item: Appointment) => {
     if (item.status === "cancelled") return <Badge variant="outline">{dict.statusCancelled}</Badge>
@@ -146,6 +149,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
               <div className="flex flex-wrap items-center gap-2">
                 {joinMeet(next, "secondary")}
                 <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(next)} variant="secondary" />
+                <PreparationDialog appointment={next} {...notesProps} inverted />
                 {next.changeable ? (
                   <AppointmentActions appointment={next} {...actionProps} inverted />
                 ) : (
@@ -162,6 +166,8 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
         </CardContent>
       </Card>
 
+      <OpenSessionActions {...notesProps} />
+
       <Tabs
         value={section}
         onValueChange={(value) => {
@@ -175,6 +181,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             <TabsTrigger value="appointments">{text.tabAppointments}</TabsTrigger>
             <TabsTrigger value="book">{text.tabBook}</TabsTrigger>
             <TabsTrigger value="documents">{text.tabDocuments}</TabsTrigger>
+            <TabsTrigger value="journal">{dict.mood.tab}</TabsTrigger>
             <TabsTrigger value="support">{text.tabSupport}</TabsTrigger>
             <TabsTrigger value="profile">{text.tabProfile}</TabsTrigger>
           </TabsList>
@@ -215,9 +222,12 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
                       <div className="flex flex-wrap items-center gap-3">
                         {statusOf(item)}
                         {filter === "upcoming" && joinMeet(item, "outline")}
+                        {filter === "upcoming" && <PreparationBadge appointment={item} {...notesProps} />}
                         {filter === "upcoming" && (
                           <AddToCalendar dict={bookingDict.calendar} appointment={calendarEntry(item)} />
                         )}
+                        {filter === "upcoming" && <PreparationDialog appointment={item} {...notesProps} />}
+                        {filter === "past" && <SessionReportDialog appointment={item} {...notesProps} />}
                         <AppointmentActions appointment={item} {...actionProps} />
                         {filter === "upcoming" && !item.changeable && (
                           <span className="text-sm text-muted-foreground">{text.tooLate}</span>
@@ -236,6 +246,7 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
             dict={bookingDict}
             client
             defaultPhone={user.phone ?? undefined}
+            waitlist={{ email: user.email }}
             onBooked={() => refresh().catch((error: Error) => setMessage({ ok: false, text: error.message }))}
           />
         </TabsContent>
@@ -296,6 +307,10 @@ export function ClientDashboard({ dict, bookingDict, types, formats, portal }: C
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="journal" className="pt-4">
+          <MoodJournal dict={dict.mood} portal={portal} />
         </TabsContent>
 
         <TabsContent value="support" className="pt-4">

@@ -16,6 +16,7 @@ export const texts = {
     coaching: "L’accompagnement",
     seminars: "Séminaires",
     booking: "Rendez-vous",
+    selfCheck: "Auto-évaluation",
     clientArea: "Espace client",
     // Bouton d'accès de l'en-tête : « Se connecter » tant que le visiteur n'est pas connecté.
     login: "Se connecter",
@@ -138,6 +139,88 @@ export const texts = {
     text: "Réservez un appel découverte de 45 minutes, en visioconférence. Le créneau est confirmé immédiatement.",
     button: "Réserver un appel",
   },
+  // Témoignages : listes vides par défaut, et la section est masquée tant que sa liste est vide.
+  // N'ajouter que des témoignages réels, avec l'accord écrit de chaque personne (citation et prénom ou initiales).
+  // en.ts doit contenir les mêmes témoignages traduits, dans le même ordre. Format d'un élément :
+  // { quote: "Ce que la personne a écrit.", author: "Claire M.", context: "Accompagnement de 3 mois" }
+  // context est facultatif (pour une entreprise, par exemple « Équipe de 12 personnes »).
+  testimonials: {
+    eyebrow: "Témoignages",
+    title: "Ce qu’en disent les personnes accompagnées",
+    companiesEyebrow: "Témoignages",
+    companiesTitle: "Ce qu’en disent les équipes",
+    coaching: [] as Testimonial[],
+    companies: [] as Testimonial[],
+  },
+  // Questionnaire « Où en êtes-vous ? » (/auto-evaluation) : les réponses restent dans le navigateur.
+  quiz: {
+    metaTitle: "Où en êtes-vous ? · Auto-évaluation",
+    badge: "Auto-évaluation · 2 minutes",
+    title: "Où en êtes-vous ?",
+    intro:
+      "Dix questions courtes pour faire le point sur ce que vous vivez en ce moment. Répondez spontanément : il n’y a pas de bonne ou de mauvaise réponse.",
+    privacy: "Vos réponses restent dans votre navigateur : rien n’est envoyé ni enregistré.",
+    homeCta: "Faire le point en 2 minutes",
+    progress: "Question {current} sur {total}",
+    lead: "Au cours des dernières semaines…",
+    scale: ["Jamais", "Parfois", "Souvent", "Presque toujours"],
+    // `short` : libellé repris dans le résumé joint à la demande de rendez-vous.
+    questions: [
+      { text: "J’ai l’impression de tourner en rond, sans vraiment savoir pourquoi.", short: "Tourner en rond" },
+      { text: "Mes journées se ressemblent et perdent leur saveur.", short: "Journées sans saveur" },
+      { text: "J’ai du mal à ressentir de l’envie ou de la joie, même pour ce que j’aimais.", short: "Peu d’envie ou de joie" },
+      { text: "J’ai le sentiment d’assister à ma propre vie sans vraiment y prendre part.", short: "Assister à ma vie sans y prendre part" },
+      { text: "Je ressens un vide intérieur que j’ai du mal à nommer.", short: "Vide difficile à nommer" },
+      {
+        text: "Je remplis chaque moment de calme (écrans, travail, sorties…) pour ne pas me retrouver face à moi-même.",
+        short: "Combler les moments de calme",
+      },
+      { text: "J’éprouve un sentiment de solitude, même en compagnie des autres.", short: "Solitude, même en compagnie" },
+      { text: "Je ne sais plus très bien ce qui compte vraiment pour moi.", short: "Repères flous sur ce qui compte" },
+      { text: "Je ressens une lassitude que le repos ne suffit pas à dissiper.", short: "Lassitude persistante" },
+      { text: "J’ai du mal à me projeter dans l’avenir avec envie.", short: "Difficulté à me projeter" },
+    ],
+    previous: "Précédent",
+    next: "Suivant",
+    resultEyebrow: "Votre résultat",
+    tiers: {
+      low: {
+        title: "Quelques signes, sans doute passagers",
+        text: "Vos réponses évoquent peu de signes de vide émotionnel en ce moment. Rester à l’écoute de soi reste précieux : si l’une de ces questions a résonné, un échange peut vous aider à y voir plus clair.",
+      },
+      medium: {
+        title: "Des signes qui méritent votre attention",
+        text: "Plusieurs des situations décrites font partie de votre quotidien. Ce n’est ni un jugement ni un diagnostic : c’est peut-être le moment de prendre le temps de comprendre ce qui se passe pour vous. Un appel découverte permet d’en parler, sans engagement.",
+      },
+      high: {
+        title: "Un vide qui semble prendre beaucoup de place",
+        text: "Vous semblez traverser une période où ce vide pèse au quotidien. Vous n’avez pas à le traverser sans soutien : en parler est déjà un premier pas. Si vous vivez un moment très difficile, n’attendez pas et appelez l’un des numéros ci-dessous, joignables à tout moment.",
+      },
+    },
+    disclaimer:
+      "Ce questionnaire n’est pas un outil médical et ne pose aucun diagnostic. Il vous aide simplement à faire le point et ne remplace pas l’avis d’un professionnel de santé.",
+    attach: "Joindre un résumé de mes réponses à ma demande de rendez-vous",
+    attachHint:
+      "Le résumé est ajouté au champ « Ce qui vous amène », que vous pourrez modifier ou effacer. Il n’est transmis que si vous confirmez le rendez-vous.",
+    cta: "Réserver un appel découverte",
+    restart: "Recommencer",
+    // Résumé joint à la demande de rendez-vous (champ « Ce qui vous amène »).
+    summaryTitle: "Résumé de mon auto-évaluation « Où en êtes-vous ? » (indicatif, pas un diagnostic) :",
+    summaryLine: "- {question} : {answer}",
+    summaryResult: "Résultat : {result}",
+  },
+  // Ressources d'urgence : pied de page et résultat du questionnaire.
+  crisis: {
+    title: "Besoin d’aide maintenant ?",
+    distress:
+      "En cas de détresse ou d’idées suicidaires : {suicide} (numéro national de prévention du suicide, gratuit, 24 h/24, 7 j/7).",
+    emergency: "En cas d’urgence vitale : {samu} ou {europe}.",
+    call: "Appeler le {number}",
+  },
+  // Message affiché quand le champ « Ce qui vous amène » a été prérempli (questionnaire, séminaires…).
+  bookingPrefill: {
+    notice: "Ce champ a été prérempli à partir de votre parcours sur le site. Vous pouvez le modifier avant d’envoyer.",
+  },
   seminars: {
     metaTitle: "Séminaires",
     badge: "Séminaires en entreprise",
@@ -173,6 +256,41 @@ export const texts = {
         description: "Explorer les représentations et les questionnements autour de la confiance en soi.",
       },
     ],
+    // Configurateur : prépare la demande d'audit, sans prix (le devis se construit pendant l'audit).
+    builder: {
+      eyebrow: "Configurateur",
+      title: "Esquissez votre séminaire",
+      intro:
+        "Quatre questions rapides pour préparer l’audit. Rien n’est envoyé à ce stade : votre récapitulatif sera repris dans la demande de rendez-vous.",
+      progress: "Étape {current} sur {total}",
+      sizeTitle: "Combien de personnes participeraient ?",
+      sizes: ["Moins de 10 personnes", "10 à 25 personnes", "25 à 50 personnes", "Plus de 50 personnes"],
+      topicsTitle: "Quels thèmes vous intéressent ?",
+      topicsHint: "Plusieurs choix possibles. Si vous hésitez, passez cette étape : vous en parlerez pendant l’audit.",
+      formatTitle: "Quel format envisagez-vous ?",
+      formats: [
+        { title: "Une demi-journée", description: "Une session ciblée sur un thème." },
+        { title: "Une journée", description: "Le temps d’explorer et de mettre en pratique." },
+        { title: "Un cycle de plusieurs sessions", description: "Un accompagnement de l’équipe dans la durée." },
+      ],
+      goalTitle: "Quel est votre objectif principal ?",
+      goalLabel: "Objectif (facultatif)",
+      goalHint: "En une ou deux phrases, par exemple : mieux communiquer après une réorganisation.",
+      required: "Choisissez une option pour continuer.",
+      previous: "Précédent",
+      next: "Suivant",
+      summaryTitle: "Votre récapitulatif",
+      summarySize: "Équipe",
+      summaryTopics: "Thèmes",
+      summaryFormat: "Format",
+      summaryGoal: "Objectif",
+      notChosen: "À préciser",
+      topicsOpen: "À définir pendant l’audit",
+      edit: "Modifier",
+      quoteNote: "Pas de prix à ce stade : le devis se construit pendant l’audit, à partir de votre contexte.",
+      prefillTitle: "Projet de séminaire (configurateur du site)",
+      prefillLine: "{label} : {value}",
+    },
   },
   booking: {
     metaTitle: "Prendre rendez-vous",
@@ -210,6 +328,33 @@ export const texts = {
       followUpNote:
         "* Durée du suivi provisoire : une heure, selon la durée des séances individuelles. À confirmer avec Youcef.",
     },
+  },
+  // Liste d'attente « Prévenez-moi si un créneau se libère » (/rendez-vous, espace client,
+  // page de désinscription et indicateur du gérant).
+  waitlist: {
+    title: "Prévenez-moi si un créneau se libère",
+    toggle: "Aucun horaire ne vous convient ? Prévenez-moi si un créneau se libère",
+    emptyIntro: "Aucun créneau n’est disponible pour l’instant. Laissez votre adresse : vous recevrez un e-mail dès qu’un créneau se libère.",
+    intro: "Vous recevrez un e-mail dès qu’un créneau se libère pour le rendez-vous choisi.",
+    email: "E-mail",
+    typeLabel: "Rendez-vous concerné",
+    consentBefore: "J’accepte que mon adresse soit utilisée pour me prévenir d’un créneau libre (30 jours maximum), selon la",
+    consentLink: "politique de confidentialité",
+    submit: "Me prévenir",
+    submitting: "Inscription…",
+    successTitle: "C’est noté",
+    success:
+      "Si un créneau se libère, vous recevrez un e-mail : une seule alerte, premier arrivé, premier servi. L’inscription est valable 30 jours ; chaque e-mail contient un lien de désinscription.",
+    adminKpi: "Personnes en liste d’attente",
+    adminHint: "Découverte : {vente} · Audit : {audit} · Suivi : {suivi}",
+    metaTitle: "Liste d’attente",
+    unsubscribeTitle: "Se désinscrire de la liste d’attente",
+    unsubscribeIntro: "Vous ne serez plus prévenu(e) des créneaux libérés pour ce rendez-vous, et votre adresse sera supprimée de la liste d’attente.",
+    unsubscribeSubmit: "Confirmer la désinscription",
+    unsubscribing: "Désinscription…",
+    unsubscribed: "C’est fait : vous êtes désinscrit(e) et votre adresse a été supprimée de la liste d’attente.",
+    unsubscribeMissing: "Ce lien est incomplet. Ouvrez le lien reçu par e-mail.",
+    backToBooking: "Prendre rendez-vous",
   },
   portal: {
     metaTitle: "Espace client",
@@ -387,6 +532,51 @@ export const texts = {
       statusSaved: "Statut mis à jour.",
       close: "Fermer",
     },
+    // Préparation de séance (client) et compte rendu avec actions (gérant, puis client).
+    sessionNotes: {
+      prepare: "Préparer la séance",
+      prepareEdit: "Modifier ma préparation",
+      prepared: "Préparation notée",
+      prepareTitle: "Ce que j’aimerais aborder",
+      prepareText: "{type} du {date}. Notez les sujets, situations ou questions que vous aimeriez aborder. Seul Youcef peut le lire ; vous pouvez modifier ce texte jusqu’au début de la séance.",
+      prepareLabel: "Ce que j’aimerais aborder",
+      counter: "{count} / {max} caractères",
+      prepareSave: "Enregistrer",
+      prepareSaved: "Préparation enregistrée.",
+      saving: "Enregistrement…",
+      close: "Fermer",
+      reportOpen: "Compte rendu",
+      reportTitle: "Compte rendu de séance",
+      reportText: "{type} du {date}.",
+      updatedOn: "Mis à jour le {date}",
+      yourPreparation: "Votre préparation",
+      actionsTitle: "À faire d’ici la prochaine séance",
+      actionsEmpty: "Aucune action pour cette séance.",
+      actionsProgress: "{done} / {total} faite(s)",
+      actionSaved: "Action mise à jour.",
+      highlightTitle: "Vos actions en cours",
+      highlightText: "Issues de votre séance du {date}. Cochez-les au fur et à mesure.",
+      highlightRead: "Lire le compte rendu",
+      adminPreparation: "Ce que le client aimerait aborder",
+      adminReport: "Compte rendu de séance",
+      adminReportIntro: "Visible par le client dans son espace, où il coche ses actions. À la première publication, il reçoit un e-mail l’invitant à le lire, sans son contenu.",
+      adminNotCompleted: "Marquez la séance réalisée pour rédiger son compte rendu.",
+      adminWrite: "Rédiger le compte rendu",
+      adminEdit: "Modifier",
+      summaryLabel: "Compte rendu",
+      actionsLabel: "Actions d’ici la prochaine séance · 5 au maximum",
+      actionPlaceholder: "Action {number}",
+      actionAdd: "Ajouter une action",
+      actionRemove: "Retirer l’action {number}",
+      publish: "Publier le compte rendu",
+      update: "Enregistrer les modifications",
+      cancelEdit: "Annuler",
+      published: "Compte rendu publié. Le client est prévenu par e-mail.",
+      updated: "Compte rendu mis à jour.",
+      publishedOn: "Publié le {date}",
+      actionDone: "Fait",
+      actionOpen: "À faire",
+    },
     // Tableau de bord du gérant : indicateurs, calendrier, liste des rendez-vous.
     dashboard: {
       tabs: {
@@ -521,6 +711,48 @@ export const texts = {
     disabled: "Désactivé",
     disable: "Désactiver",
     enable: "Réactiver",
+    // Journal d'humeur (« météo intérieure ») : onglet du client et aperçu du gérant.
+    mood: {
+      tab: "Journal",
+      title: "Ma météo intérieure",
+      intro: "Chaque jour, notez d’un geste le temps qu’il fait en vous. Une entrée par jour : enregistrer à nouveau remplace celle du jour.",
+      privacy: "Votre journal est confidentiel : seul Youcef peut le consulter, pour préparer vos séances. Il n’est jamais repris dans un e-mail ni dans un agenda.",
+      question: "Quel temps fait-il en vous aujourd’hui ?",
+      editQuestion: "Quel temps faisait-il en vous le {date} ?",
+      levels: ["Orage", "Pluie", "Nuageux", "Éclaircies", "Soleil"],
+      note: "Quelques mots (facultatif)",
+      notePlaceholder: "Ce qui colore votre journée, une pensée, un événement…",
+      noteCount: "{count} / {max} caractères",
+      save: "Enregistrer",
+      saveToday: "Mettre à jour l’entrée du jour",
+      update: "Enregistrer la modification",
+      cancelEdit: "Annuler",
+      saved: "Votre météo du jour est enregistrée.",
+      updated: "Entrée modifiée.",
+      deleted: "Entrée supprimée.",
+      chartTitle: "Les {days} derniers jours",
+      chartLabel: "Météo intérieure du {from} au {to} : {count} jour(s) renseigné(s).",
+      chartHint: "Survolez ou touchez une barre pour voir le détail.",
+      noEntry: "Pas d’entrée",
+      today: "Aujourd’hui",
+      recentTitle: "Mes entrées récentes",
+      empty: "Aucune entrée pour le moment : commencez aujourd’hui.",
+      noNote: "Sans note",
+      edit: "Modifier",
+      editLabel: "Modifier l’entrée du {date}",
+      delete: "Supprimer",
+      deleteLabel: "Supprimer l’entrée du {date}",
+      deleteTitle: "Supprimer cette entrée ?",
+      deleteText: "L’entrée du {date} sera définitivement supprimée.",
+      deleteCancel: "Garder",
+      adminTitle: "Journal des 14 derniers jours",
+      adminPrivate: "Confidentiel : tenu par le client pour préparer les séances.",
+      adminEmpty: "Aucune entrée sur les 14 derniers jours.",
+      adminNotes: "Dernières notes",
+      adminOpen: "Journal",
+      adminDialogTitle: "Journal de {name}",
+      close: "Fermer",
+    },
   },
   // Pages « mot de passe oublié » et « choisir un nouveau mot de passe ».
   passwordReset: {
@@ -646,6 +878,46 @@ export const texts = {
       title: "Nouvelle demande de support",
       intro: "{name} ({email}) a déposé une demande :",
     },
+    // Rappel automatique la veille du rendez-vous (tâche planifiée /api/cron/rappels).
+    reminder: {
+      subject: "Rappel : votre rendez-vous demain, {date}",
+      title: "Votre rendez-vous, c’est demain",
+      intro: "Petit rappel : votre {type} avec Youcef a lieu demain. Voici le récapitulatif :",
+      joinMeet: "Rejoindre la visio (Google Meet)",
+      meetNote: "Connectez-vous quelques minutes avant l’heure : Youcef vous fera entrer.",
+      cancelClient:
+        "Un empêchement ? Vous pouvez annuler ou déplacer ce rendez-vous depuis votre espace client tant qu’il reste plus de 24 h avant son début ; passé ce délai, prévenez Youcef au plus vite.",
+      cancelProspect:
+        "Un empêchement ? Prévenez Youcef au plus vite : un rendez-vous s’annule ou se déplace au moins 24 h à l’avance.",
+    },
+    // Compte rendu de séance publié : le contenu n'est jamais repris dans l'e-mail.
+    sessionReport: {
+      subject: "Votre compte rendu de séance est disponible",
+      title: "Votre compte rendu est disponible",
+      intro: "Youcef a rédigé le compte rendu de votre {type} du {date}, avec les actions à mener d’ici la prochaine séance. Retrouvez-le dans votre espace client.",
+      privacy: "Par discrétion, son contenu n’est pas repris dans cet e-mail.",
+    },
+    // Liste d'attente : confirmation d'inscription et alerte « un créneau vient de se libérer ».
+    waitlist: {
+      joined: {
+        subject: "Liste d’attente · {type}",
+        title: "C’est noté",
+        intro: "Vous serez prévenu(e) par e-mail dès qu’un créneau se libère pour votre {type}. Vous recevrez une seule alerte : premier arrivé, premier servi.",
+        expires: "Votre inscription est valable 30 jours, jusqu’au {date}. Passé ce délai, elle est supprimée.",
+      },
+      freed: {
+        subject: "Un créneau vient de se libérer · {type}",
+        title: "Un créneau vient de se libérer",
+        intro: "Vous aviez demandé à être prévenu(e) : de la place vient de se libérer pour votre {type}.",
+        slotsLabel: "Disponible · heure de Paris",
+        more: "… et {count} autre(s) créneau(x)",
+        firstCome: "Premier arrivé, premier servi : d’autres personnes ont pu recevoir ce message, et chaque créneau revient à la première réservation.",
+        button: "Réserver un créneau",
+        oneAlert: "Cette alerte était unique. Si ces horaires ne vous conviennent pas, vous pouvez vous réinscrire depuis la page de réservation.",
+      },
+      unsubscribeText: "Vous ne souhaitez plus être prévenu(e) ?",
+      unsubscribeLabel: "Se désinscrire",
+    },
   },
   errors: {
     generic: "Impossible de traiter cette demande. Vérifiez les champs.",
@@ -685,6 +957,17 @@ export const texts = {
     unknownAction: "Action inconnue.",
     ticketNotFound: "Demande introuvable.",
     ticketClosed: "Cette demande est clôturée : rouvrez-la avant d’y répondre.",
+    // Préparation et compte rendu de séance.
+    preparationClosed: "La séance a commencé : la préparation ne peut plus être modifiée.",
+    sessionReportUnavailable: "Le compte rendu n’est possible que pour une séance réalisée, prise depuis un compte client.",
+    sessionActionsInvalid: "5 actions au maximum, de 200 caractères chacune.",
+    sessionActionNotFound: "Action introuvable.",
+    waitlistConsent: "Veuillez accepter l’utilisation de votre adresse pour cette alerte.",
+    waitlistLinkInvalid: "Ce lien de désinscription n’est plus valable : il a déjà servi, a expiré ou a été remplacé par un lien plus récent.",
+    moodInvalid: "Choisissez votre météo du jour.",
+    moodNoteTooLong: "La note doit faire 500 caractères au maximum.",
+    moodNotFound: "Entrée du journal introuvable.",
+    moodClientOnly: "Le journal se tient depuis un compte client.",
   },
   legal: {
     updatedAt: "Dernière mise à jour : 3 novembre 2026",
@@ -734,6 +1017,7 @@ export const texts = {
         items: [
           "Réservation : prénom, nom, adresse e-mail, téléphone, créneau, format et quelques mots sur ce qui vous amène.",
           "Espace client : nom, adresse e-mail, téléphone et mot de passe, vos rendez-vous (y compris annulés), les documents partagés avec vous et vos demandes de support.",
+          "Journal d’humeur (facultatif, espace client) : votre météo du jour sur cinq niveaux et une note libre. Seuls vous et Youcef y avez accès, pour préparer les séances ; il n’est jamais repris dans un e-mail ni dans Google Agenda, et vous pouvez modifier ou supprimer chaque entrée.",
           "Connexion : un cookie de session et, en cas d’échecs répétés, votre adresse e-mail avec le nombre de tentatives (pendant 15 minutes).",
           "Données techniques : adresse IP et informations de navigation enregistrées dans les journaux de l’hébergeur Vercel.",
         ],
@@ -745,6 +1029,10 @@ export const texts = {
       {
         title: "Ce qui vous amène",
         text: "Le champ « Ce qui vous amène » peut contenir des informations personnelles sensibles (bien-être, santé). Il n’est visible que par Youcef et n’est jamais vendu ni transmis à des fins commerciales. Ne partagez que ce que vous souhaitez.",
+      },
+      {
+        title: "Préparation et comptes rendus de séance",
+        text: "Dans votre espace client, vous pouvez noter avant une séance ce que vous aimeriez aborder ; après la séance, Youcef y rédige un compte rendu et des actions que vous cochez. Ces informations, qui peuvent être sensibles, ne sont visibles que par vous et Youcef, sont conservées avec vos rendez-vous et ne sont jamais reprises dans un e-mail ni dans Google Agenda.",
       },
       {
         title: "Finalités et bases légales",
@@ -780,6 +1068,7 @@ export const texts = {
         items: [
           "Demande de rendez-vous sans suite : 3 ans après le dernier contact.",
           "Compte client et rendez-vous : pendant la durée de l’accompagnement, puis 3 ans.",
+          "Liste d’attente « Prévenez-moi si un créneau se libère » : adresse e-mail, rendez-vous concerné et langue, 30 jours maximum (supprimés dès la désinscription).",
           "Session de connexion : 8 heures ; tentatives de connexion : 15 minutes.",
           "Journaux techniques de l’hébergeur : selon la politique de Vercel.",
         ],
@@ -797,3 +1086,6 @@ export const texts = {
 }
 
 export type Texts = typeof texts
+
+// Témoignage affiché par la section réutilisable src/components/sections/testimonials.tsx.
+export type Testimonial = { quote: string; author: string; context?: string }

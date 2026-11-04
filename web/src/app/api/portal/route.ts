@@ -12,11 +12,14 @@ import {
   mailBookingRescheduled,
   mailCancelledByOwner,
   mailRescheduledByOwner,
+  mailSessionReport,
   mailPasswordReset,
   mailTicketCreated,
   mailTicketReply,
   mailWelcome,
+  mailWaitlistJoined,
 } from "@/lib/mail/notifications";
+import { notifyWaitlist, subscribeWaitlist, unsubscribeWaitlist, waitlistCounts } from "@/lib/waitlist";
 import {
   addDocument,
   addSlotRange,
@@ -29,10 +32,15 @@ import {
   createTicket,
   currentUser,
   deleteAppointment,
+  deleteMood,
+  listMoodEntries,
+  MOOD_NOTE_MAX,
+  saveMood,
   getDocument,
   listAppointments,
   listClients,
   listDocuments,
+  listSessionNotes,
   listTickets,
   listUpcomingSlots,
   login,
@@ -40,6 +48,7 @@ import {
   MAX_REQUIRED_SESSIONS,
   ownerCancelAppointment,
   ownerRescheduleAppointment,
+  PREPARATION_MAX,
   removeDocument,
   removeSlot,
   registerClient,
@@ -49,8 +58,14 @@ import {
   rescheduleAppointment,
   resetClientPassword,
   reserve,
+  savePreparation,
+  saveSessionReport,
+  SESSION_ACTION_MAX,
+  SESSION_ACTIONS_MAX,
+  setSessionActionDone,
   setTicketStatus,
   SLOT_LENGTHS,
+  SUMMARY_MAX,
   type SlotLength,
   TICKET_STATUSES,
   type TicketStatus,
@@ -88,6 +103,10 @@ const errorFields: Partial<Record<ErrorCode, string>> = {
   slotOverlap: "starts",
   pdfInvalid: "file",
   sessionsInvalid: "required_sessions",
+  sessionActionsInvalid: "actions",
+  waitlistConsent: "consent",
+  moodInvalid: "mood",
+  moodNoteTooLong: "note",
 };
 
 // Langue de l'interface utilisée pour la requête (messages d'erreur et e-mails du visiteur).
@@ -147,11 +166,48 @@ function meetingFormat(value: unknown): MeetingFormat {
   return value as MeetingFormat;
 }
 
+// Préparation de séance : vide = effacée.
+function preparation(data: Record<string, unknown>) {
+  const value = data.preparation;
+  if (typeof value !== "string" || value.length > PREPARATION_MAX)
+    throw new AppError("invalidField", 400, "preparation");
+  return value.trim() || null;
+}
+// Actions du compte rendu : `{ id?, label }`, 5 au plus ; `id` désigne une action existante.
+function sessionActionsInput(value: unknown) {
+  if (!Array.isArray(value) || value.length > SESSION_ACTIONS_MAX)
+    throw new AppError("sessionActionsInvalid");
+  const seen = new Set<number>();
+  return value.map((item: unknown) => {
+    const { id: actionId, label } = (item ?? {}) as Record<string, unknown>;
+    if (typeof label !== "string" || !label.trim() || label.length > SESSION_ACTION_MAX)
+      throw new AppError("sessionActionsInvalid");
+    if (actionId === undefined || actionId === null) return { label: label.trim() };
+    const known = id(actionId);
+    if (seen.has(known)) throw new AppError("sessionActionsInvalid");
+    seen.add(known);
+    return { id: known, label: label.trim() };
+  });
+}
+
 function ticketStatus(value: unknown): TicketStatus {
   const statuses: readonly string[] = TICKET_STATUSES;
   if (typeof value !== "string" || !statuses.includes(value))
     throw new AppError("invalidField", 400, "status");
   return value as TicketStatus;
+}
+
+// Journal d'humeur : niveau 1 (orage) à 5 (soleil) et note facultative.
+function moodLevel(value: unknown) {
+  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 5)
+    throw new AppError("moodInvalid", 400, `mood=${value}`);
+  return value as number;
+}
+function moodNote(value: unknown) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") throw new AppError("moodNoteTooLong");
+  if (value.length > MOOD_NOTE_MAX) throw new AppError("moodNoteTooLong");
+  return value.trim() || null;
 }
 
 export async function GET(request: NextRequest) {
@@ -182,13 +238,16 @@ export async function GET(request: NextRequest) {
     }
     if (!user) return response({ user: null });
     const admin = user.role === "admin";
-    const [appointments, documents, tickets, clients, slots, sessions] = await Promise.all([
+    const [appointments, documents, tickets, clients, slots, sessions, sessionNotes, mood] = await Promise.all([
       listAppointments(user),
       listDocuments(user),
       listTickets(user),
       admin ? listClients() : undefined,
       admin ? listUpcomingSlots() : undefined,
       admin ? undefined : completedSessions(user.id),
+      listSessionNotes(user),
+      // Client : son journal des 30 derniers jours ; gérant : celui de tous les clients sur 14 jours.
+      listMoodEntries(user),
     ]);
     return response({
       user: {
@@ -201,8 +260,15 @@ export async function GET(request: NextRequest) {
       appointments,
       documents,
       tickets,
+      sessionNotes,
+      mood,
       ...(admin
-        ? { clients, slots, agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled(), googleMeet: googleMeetEnabled() } }
+        ? {
+            clients,
+            slots,
+            agenda: { feedPath: feedPath(), googleSync: googleSyncEnabled(), googleMeet: googleMeetEnabled() },
+            waitlist: await waitlistCounts(),
+          }
         : { completedSessions: sessions }),
     });
   } catch (error) {
@@ -281,6 +347,20 @@ export async function POST(request: NextRequest) {
       if (password.length < 12) throw new AppError("passwordTooShort");
       return withSession(await resetPassword(text(data, "token", 200), password));
     }
+    // Liste d'attente : réponse identique qu'une inscription existe déjà ou non (réinscription =
+    // mise à jour) et que la limite de débit soit atteinte ou non.
+    if (data.action === "waitlist-subscribe") {
+      if (data.consent !== true) throw new AppError("waitlistConsent");
+      const type = appointmentType(data.type);
+      if (type === "suivi" && user?.role !== "client") return failure("clientRequired", 401);
+      const entry = await subscribeWaitlist(email(data), type, requestLocale(request));
+      if (entry) mailLater(request, (_locale, site) => mailWaitlistJoined(entry, entry.token, site));
+      return response({ ok: true });
+    }
+    if (data.action === "waitlist-unsubscribe") {
+      await unsubscribeWaitlist(text(data, "token", 200));
+      return response({ ok: true });
+    }
     if (data.action === "logout") {
       const token = request.cookies.get("session")?.value;
       if (token) await logout(token);
@@ -301,6 +381,7 @@ export async function POST(request: NextRequest) {
         phone: phone(data),
         intention: text(data, "intention", 1000),
         user,
+        locale: requestLocale(request),
       });
       // Une demande reçue deux fois ne déclenche ni deuxième synchronisation ni deuxième e-mail.
       if (!repeated) {
@@ -322,6 +403,30 @@ export async function POST(request: NextRequest) {
       mailLater(request, (_locale, site) => mailTicketCreated(ticket.id, site));
       return response({ ok: true, reference: ticket.id });
     }
+    // Préparation de séance et actions du compte rendu : par le client, sur ses propres rendez-vous.
+    if (data.action === "save-preparation" || data.action === "session-action") {
+      if (user?.role !== "client") return failure("clientRequired", 401);
+      if (data.action === "save-preparation") {
+        await savePreparation(user, id(data.id), preparation(data));
+      } else {
+        if (typeof data.done !== "boolean") throw new AppError("invalidField", 400, "done");
+        await setSessionActionDone(user, id(data.id), data.done);
+      }
+      return response({ ok: true });
+    }
+    // Journal d'humeur : le client ne modifie que ses propres entrées ; le gérant le consulte seulement.
+    if (data.action === "save-mood" || data.action === "delete-mood") {
+      if (!user) return failure("loginRequired", 401);
+      if (user.role !== "client") return failure("moodClientOnly", 403);
+      const entryId = data.id === undefined || data.id === null ? undefined : id(data.id);
+      if (data.action === "delete-mood") {
+        if (entryId === undefined) throw new AppError("invalidField", 400, "id");
+        await deleteMood(user, entryId);
+        return response({ ok: true });
+      }
+      const saved = await saveMood(user, moodLevel(data.mood), moodNote(data.note), entryId);
+      return response({ ok: true, day: saved.day });
+    }
     // Gestion de ses rendez-vous et de son profil par le client connecté.
     if (
       typeof data.action === "string" &&
@@ -330,13 +435,20 @@ export async function POST(request: NextRequest) {
       if (user?.role !== "client") return failure("clientRequired", 401);
       if (data.action === "cancel") {
         const appointmentId = id(data.id);
-        await cancelAppointment(user, appointmentId);
+        const cancelled = await cancelAppointment(user, appointmentId);
         syncLater(request, appointmentId, (locale, site) => mailBookingCancelled(appointmentId, locale, site));
+        waitlistLater(request, cancelled.starts);
         return response({ ok: true });
       }
       if (data.action === "reschedule") {
         const appointmentId = id(data.id);
-        const moved = await rescheduleAppointment(user, appointmentId, id(data.slot));
+        const moved = await rescheduleAppointment(
+          user,
+          appointmentId,
+          id(data.slot),
+          requestLocale(request),
+        );
+        waitlistLater(request, moved.previousStarts);
         syncLater(request, appointmentId, (locale, site) =>
           mailBookingRescheduled(appointmentId, moved.previousStarts, locale, site),
         );
@@ -380,6 +492,7 @@ export async function POST(request: NextRequest) {
           appointmentId,
           notify ? (_locale, site) => mailRescheduledByOwner(appointmentId, moved.previousStarts, site) : undefined,
         );
+        waitlistLater(request, moved.previousStarts);
         return response({ ok: true, starts: moved.starts.getTime() });
       }
       const row =
@@ -387,6 +500,8 @@ export async function POST(request: NextRequest) {
           ? await ownerCancelAppointment(appointmentId)
           : await deleteAppointment(appointmentId);
       syncLater(request, appointmentId);
+      // Créneau libéré : rendez-vous annulé, ou supprimé alors qu'il occupait encore son créneau.
+      if (data.action === "owner-cancel" || row.slotId !== null) waitlistLater(request, row.starts);
       // Seul un rendez-vous encore à venir et confirmé justifie de prévenir le client.
       const wasUpcoming =
         row.starts.getTime() > Date.now() && (data.action === "owner-cancel" || row.status === "confirmed");
@@ -412,14 +527,22 @@ export async function POST(request: NextRequest) {
           `starts=${data.starts} ends=${data.ends} minutes=${data.minutes}`,
         );
       if (starts <= Date.now()) throw new AppError("slotPast");
-      return response({
-        ok: true,
-        ...(await addSlotRange(new Date(starts), new Date(ends), minutes)),
-      });
+      const added = await addSlotRange(new Date(starts), new Date(ends), minutes);
+      waitlistLater(request, new Date(starts), new Date(ends));
+      return response({ ok: true, ...added });
     } else if (data.action === "remove-slot") {
       await removeSlot(id(data.id));
     } else if (data.action === "complete") {
       await toggleCompleted(id(data.id));
+    } else if (data.action === "session-report") {
+      // Compte rendu d'une séance réalisée : e-mail au client à la première publication seulement.
+      const appointmentId = id(data.id);
+      const saved = await saveSessionReport(
+        appointmentId,
+        text(data, "summary", SUMMARY_MAX),
+        sessionActionsInput(data.actions),
+      );
+      if (saved.first) mailLater(request, (_locale, site) => mailSessionReport(appointmentId, site));
     } else if (data.action === "reply-ticket") {
       const ticketId = id(data.id);
       const message = text(data, "message", 4000);
@@ -451,6 +574,15 @@ function syncLater(
     await syncAppointment(appointmentId, site);
     await send?.(locale, site).catch((error) => console.error("[mail] préparation impossible :", error));
   });
+}
+
+// Liste d'attente : prévient les inscrits après la réponse si des créneaux de [from, to) sont
+// de nouveau réservables (par défaut, le seul créneau qui commence à `from`).
+function waitlistLater(request: NextRequest, from: Date, to = new Date(from.getTime() + 1)) {
+  const site = siteUrl(request.nextUrl.origin);
+  after(() =>
+    notifyWaitlist(from, to, site).catch((error) => console.error("[liste d'attente] notification impossible :", error)),
+  );
 }
 
 // Envoie un e-mail après la réponse : le visiteur n'attend pas l'API d'envoi.

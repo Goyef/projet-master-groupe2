@@ -34,6 +34,8 @@ import type { Texts } from "@/content/texts"
 import { format } from "@/lib/format"
 
 import { typeLabel } from "./admin-calendar"
+import { SessionNotesPanel } from "./session-notes"
+import { ClientMoodSummary } from "./mood-journal"
 
 import type { Appointment, Portal } from "./use-portal"
 
@@ -203,6 +205,9 @@ export function AppointmentSheet({ appointment, onClose, dict, types, formats, l
                       <p className="rounded-lg bg-muted p-3 text-sm whitespace-pre-line">{item.intention}</p>
                     </section>
                   )}
+
+                  <SessionNotesPanel appointment={item} dict={dict.sessionNotes} portal={portal} />
+                  <ClientMoodSummary userId={item.userId} dict={dict.mood} portal={portal} />
 
                   <Separator />
 
