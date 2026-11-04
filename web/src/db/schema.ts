@@ -102,6 +102,20 @@ export const documentRecipients = pgTable(
   ],
 );
 
+// Liens « mot de passe oublié » et « choisir mon mot de passe » : seul le hash du jeton
+// est stocké ; un lien expire et ne sert qu'une fois.
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: moment("expires").notNull(),
+  },
+  (table) => [index("password_resets_user_idx").on(table.userId)],
+);
+
 export const loginAttempts = pgTable("login_attempts", {
   email: text("email").primaryKey(),
   count: integer("count").notNull(),
