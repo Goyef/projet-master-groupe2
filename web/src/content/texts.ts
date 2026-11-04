@@ -133,6 +133,13 @@ export const texts = {
     seminarsText:
       "Synégo intervient aussi en entreprise : cohésion d’équipe, communication, gestion des conflits, connaissance de soi.",
     seminarsCta: "Découvrir les séminaires",
+    // Vidéo de présentation (motion design) sous l'accroche : sans son, en boucle.
+    videoEyebrow: "En 30 secondes",
+    videoTitle: "Synégo en un coup d’œil",
+    videoDescription:
+      "Vidéo sans son de 30 secondes : la promesse de Synégo, l’approche en trois temps (prendre conscience, comprendre, avancer), puis le parcours, de la réservation d’un appel découverte à l’espace client.",
+    videoPlay: "Lire la vidéo",
+    videoPause: "Mettre la vidéo en pause",
   },
   cta: {
     title: "Et si tout commençait par une conversation ?",
@@ -220,6 +227,46 @@ export const texts = {
   // Message affiché quand le champ « Ce qui vous amène » a été prérempli (questionnaire, séminaires…).
   bookingPrefill: {
     notice: "Ce champ a été prérempli à partir de votre parcours sur le site. Vous pouvez le modifier avant d’envoyer.",
+  },
+  // Assistant du site : bouton flottant et conversation (src/components/assistant).
+  assistant: {
+    launcher: "Une question ?",
+    launcherLabel: "Ouvrir l’assistant",
+    title: "Assistant Synégo",
+    status: "Assistant virtuel · disponible 24 h/24",
+    description: "Réponses automatiques sur l’accompagnement, les séminaires, les rendez-vous et votre espace.",
+    greeting: "Bonjour !",
+    welcome:
+      "Je suis l’assistant du site Synégo. Je peux vous renseigner sur l’accompagnement de Youcef, les séminaires, les créneaux disponibles, la réservation ou votre espace client. Que puis-je faire pour vous ?",
+    suggestionsLabel: "Questions fréquentes",
+    suggestions: [
+      "Comment se passe l’appel découverte ?",
+      "Quels sont les prochains créneaux disponibles ?",
+      "Que proposez-vous aux entreprises ?",
+      "Comment annuler ou déplacer un rendez-vous ?",
+    ],
+    inputLabel: "Votre question",
+    placeholder: "Écrivez votre question…",
+    send: "Envoyer",
+    stop: "Arrêter la réponse",
+    newConversation: "Nouvelle conversation",
+    thinking: "L’assistant réfléchit…",
+    checkingSlots: "Consultation des créneaux disponibles…",
+    counter: "{count} / {max}",
+    you: "Vous",
+    assistantName: "Assistant",
+    incomplete: "Réponse interrompue : posez une question plus précise pour obtenir la suite.",
+    empty: "Je n’ai pas pu formuler de réponse. Pouvez-vous reformuler votre question ?",
+    retry: "Réessayer",
+    disclaimer:
+      "Assistant automatique (IA) : il peut se tromper et ne remplace pas un professionnel. N’y partagez pas d’informations sensibles.",
+    privacyLink: "En savoir plus",
+    bookingTitle: "Réserver : {type}",
+    bookingSummary: "Résumé proposé pour « Ce qui vous amène » :",
+    bookingNote: "Vous choisirez votre créneau et pourrez relire ou modifier ce texte avant d’envoyer.",
+    bookingWithSummary: "Continuer avec ce résumé",
+    bookingWithoutSummary: "Continuer sans le résumé",
+    bookingOpen: "Choisir un créneau",
   },
   seminars: {
     metaTitle: "Séminaires",
@@ -968,9 +1015,16 @@ export const texts = {
     moodNoteTooLong: "La note doit faire 500 caractères au maximum.",
     moodNotFound: "Entrée du journal introuvable.",
     moodClientOnly: "Le journal se tient depuis un compte client.",
+    // Assistant (/api/assistant).
+    assistantUnavailable: "L’assistant n’est pas disponible pour le moment.",
+    assistantTooLong: "Votre message est trop long : 1 000 caractères au maximum.",
+    assistantRateLimited: "Vous avez envoyé beaucoup de messages : réessayez dans quelques minutes.",
+    assistantDailyLimit:
+      "L’assistant a atteint sa limite d’utilisation pour aujourd’hui. Réessayez demain, ou prenez rendez-vous directement.",
+    assistantFailed: "L’assistant n’a pas pu répondre. Réessayez dans un instant.",
   },
   legal: {
-    updatedAt: "Dernière mise à jour : 3 novembre 2026",
+    updatedAt: "Dernière mise à jour : 4 novembre 2026",
     noticeTitle: "Mentions légales",
     noticeIntro:
       "Version de travail : les informations marquées « à compléter » doivent être fournies par Youcef avant l’ouverture du site au public.",
@@ -1018,6 +1072,7 @@ export const texts = {
           "Réservation : prénom, nom, adresse e-mail, téléphone, créneau, format et quelques mots sur ce qui vous amène.",
           "Espace client : nom, adresse e-mail, téléphone et mot de passe, vos rendez-vous (y compris annulés), les documents partagés avec vous et vos demandes de support.",
           "Journal d’humeur (facultatif, espace client) : votre météo du jour sur cinq niveaux et une note libre. Seuls vous et Youcef y avez accès, pour préparer les séances ; il n’est jamais repris dans un e-mail ni dans Google Agenda, et vous pouvez modifier ou supprimer chaque entrée.",
+          "Assistant (facultatif) : les messages que vous lui écrivez, la page consultée, la langue de l’interface et le fait d’être connecté ou non (visiteur, client ou gérant). La conversation n’est pas enregistrée par le site : elle reste dans l’onglet de votre navigateur et disparaît à sa fermeture ou avec « Nouvelle conversation ».",
           "Connexion : un cookie de session et, en cas d’échecs répétés, votre adresse e-mail avec le nombre de tentatives (pendant 15 minutes).",
           "Données techniques : adresse IP et informations de navigation enregistrées dans les journaux de l’hébergeur Vercel.",
         ],
@@ -1040,7 +1095,8 @@ export const texts = {
         items: [
           "organiser vos rendez-vous et vous recontacter (mesures précontractuelles et exécution du contrat) ;",
           "gérer votre espace client, vos documents et vos demandes de support (exécution du contrat) ;",
-          "sécuriser l’accès au site, notamment limiter les tentatives de connexion (intérêt légitime) ;",
+          "sécuriser l’accès au site, notamment limiter les tentatives de connexion et l’usage de l’assistant (intérêt légitime) ;",
+          "répondre aux questions que vous posez à l’assistant (intérêt légitime : vous informer à votre demande) ;",
           "traiter les informations de « Ce qui vous amène » (votre consentement, donné en cochant la case du formulaire).",
         ],
       },
@@ -1052,15 +1108,16 @@ export const texts = {
           "Neon, Inc. (États-Unis, groupe Databricks) : héberge la base de données, stockée dans l’Union européenne (Francfort).",
           "Google LLC (États-Unis), uniquement si Youcef synchronise ses rendez-vous avec Google Agenda : chaque rendez-vous y est reporté avec son type, sa date, votre nom, votre adresse e-mail et votre téléphone. « Ce qui vous amène » n’est jamais transmis. Pour une visio, Google crée le lien Google Meet de la séance ; la visioconférence elle-même passe par Google Meet.",
           "Resend, Inc. (États-Unis) : envoie les e-mails du site (confirmation, déplacement ou annulation de rendez-vous, mot de passe oublié, bienvenue, réponses de support). Il reçoit votre adresse e-mail et le contenu de ces messages ; « Ce qui vous amène » n’y figure jamais.",
+          "OpenAI (États-Unis), uniquement si vous utilisez l’assistant : vos messages, la page consultée, la langue et le type de visiteur lui sont transmis pour générer la réponse, jamais votre nom, votre adresse e-mail, vos rendez-vous ni vos documents. Le site demande à OpenAI de ne pas conserver les réponses (option « store » désactivée) ; selon ses conditions pour l’API, OpenAI peut conserver temporairement les requêtes afin de détecter les abus et ne les utilise pas pour entraîner ses modèles. N’y partagez pas d’informations sensibles.",
         ],
       },
       {
         title: "Transferts hors de l’Union européenne",
-        text: "Vercel, Neon, Google et Resend sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
+        text: "Vercel, Neon, Google, Resend et OpenAI sont des sociétés américaines : un accès à vos données depuis les États-Unis ne peut pas être exclu. Ces transferts sont encadrés par les clauses contractuelles types de la Commission européenne prévues dans leurs accords de traitement des données et, le cas échéant, par le Data Privacy Framework UE–États-Unis.",
       },
       {
         title: "Cookies",
-        text: "Le site n’utilise que des cookies strictement nécessaires, qui ne demandent pas votre consentement : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures) et le cookie synego-locale, qui mémorise la langue choisie pendant un an. Le thème d’affichage choisi est enregistré uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
+        text: "Le site n’utilise que des cookies strictement nécessaires, qui ne demandent pas votre consentement : le cookie de session de l’espace client (sécurisé, inaccessible aux scripts, valable huit heures) et le cookie synego-locale, qui mémorise la langue choisie pendant un an. Le thème d’affichage choisi est enregistré uniquement dans votre navigateur (stockage local). La conversation avec l’assistant est gardée dans le stockage de session du navigateur, effacé à la fermeture de l’onglet. Aucun cookie publicitaire ou de mesure d’audience n’est déposé.",
       },
       {
         title: "Durées de conservation",
@@ -1070,6 +1127,7 @@ export const texts = {
           "Compte client et rendez-vous : pendant la durée de l’accompagnement, puis 3 ans.",
           "Liste d’attente « Prévenez-moi si un créneau se libère » : adresse e-mail, rendez-vous concerné et langue, 30 jours maximum (supprimés dès la désinscription).",
           "Session de connexion : 8 heures ; tentatives de connexion : 15 minutes.",
+          "Assistant : aucune conversation conservée par le site ; un compteur anti-abus rattaché à une empreinte de votre adresse IP (et non à l’adresse elle-même), pendant 15 minutes.",
           "Journaux techniques de l’hébergeur : selon la politique de Vercel.",
         ],
       },

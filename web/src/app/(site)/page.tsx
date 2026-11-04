@@ -3,12 +3,14 @@ import Link from "next/link"
 import { ArrowRightIcon, CompassIcon, EyeIcon, SearchIcon } from "lucide-react"
 
 import { CtaSection } from "@/components/sections/cta-section"
+import { PromoVideo } from "@/components/sections/promo-video"
 import { Testimonials } from "@/components/sections/testimonials"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getTexts, canonicalUrl } from "@/lib/i18n-server"
 import portraitYoucef from "../../../public/brand/youcef.png"
+import promoPoster from "../../../public/video/synego-promo-poster.webp"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
@@ -47,6 +49,24 @@ export default async function HomePage() {
             priority
             sizes="(min-width: 768px) 384px, 80vw"
             className="object-contain p-10"
+          />
+        </div>
+      </section>
+
+      {/* Vidéo de présentation : le site et l'approche en 30 secondes, juste sous l'accroche. */}
+      {/* Pleine largeur et rognée horizontalement : le halo du cadre ne crée pas de défilement latéral. */}
+      <section aria-labelledby="video-titre" className="overflow-x-clip pb-20 md:pb-24">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-10 space-y-2 text-center">
+            <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.videoEyebrow}</p>
+            <h2 id="video-titre" className="text-4xl font-semibold">
+              {home.videoTitle}
+            </h2>
+          </div>
+          <PromoVideo
+            src="/video/synego-promo.mp4"
+            poster={promoPoster.src}
+            labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
           />
         </div>
       </section>

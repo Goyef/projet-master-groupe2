@@ -68,6 +68,7 @@ pnpm dev              # http://localhost:3000
 
 ### Accompagner entre les séances et convertir les visiteurs
 
+- **Vidéo de présentation** (accueil, juste sous l'accroche, « Synégo en un coup d'œil ») : motion design de 30 secondes, sans son (`public/video/synego-promo.mp4`, 1080p, 2 Mo, H.264), dans un cadre arrondi avec un halo aux couleurs de la marque. Elle se lance seule, muette et en boucle, quand elle est visible à l'écran, et se met en pause dès qu'elle en sort ; jamais de lecture automatique si le système demande moins d'animations (affiche `synego-promo-poster.webp` et bouton de lecture). Un bouton lecture / pause reste toujours disponible (clavier, lecteurs d'écran, clic sur l'image), et une pause demandée n'est pas annulée par le défilement. Un texte décrit la vidéo pour les lecteurs d'écran. Composant : `src/components/sections/promo-video.tsx`, textes `home.video*`.
 - **Auto-évaluation** (`/auto-evaluation`, dans la navigation et depuis la section « Vous reconnaissez-vous ? » de l'accueil) : questionnaire « Où en êtes-vous ? » de 10 questions (jamais / parfois / souvent / presque toujours), une question par écran avec barre de progression et retour arrière, utilisable au clavier. Le résultat tient en trois paliers formulés avec douceur, sans score ni diagnostic (« Ce questionnaire n'est pas un outil médical… »), et chacun propose de réserver un appel découverte. Rien n'est envoyé au serveur ni enregistré : tout reste dans le navigateur. Si la personne coche « Joindre un résumé de mes réponses » (décochée par défaut), un résumé court est repris dans le champ « Ce qui vous amène » de `/rendez-vous`, où elle peut le modifier avant d'envoyer. Logique dans `src/lib/quiz.ts`, textes dans la section `quiz` des dictionnaires.
 - **Ressources d'urgence** : le pied de page de toutes les pages et le résultat du questionnaire affichent un encart sobre : 3114 (numéro national de prévention du suicide, gratuit, 24 h/24, 7 j/7), 15 ou 112 en cas d'urgence vitale, avec liens `tel:`. En anglais, les numéros restent les numéros français et le texte précise « in France ». Composant : `src/components/sections/crisis-resources.tsx`.
 - **Configurateur de séminaire** (`/seminaires#configurateur`) : en quatre étapes (taille de l'équipe, thèmes, format, objectif facultatif), l'entreprise esquisse son séminaire et voit un récapitulatif, sans prix (le devis se construit pendant l'audit). Le bouton « Réserver un audit · 45 minutes » préremplit la demande d'audit sur `/rendez-vous`. Rien n'est envoyé au serveur à cette étape.
@@ -77,6 +78,20 @@ pnpm dev              # http://localhost:3000
 - **Rappel la veille** : chaque jour vers 16 h UTC (tâche planifiée Vercel déclarée dans `vercel.json`, une fois par jour sur l'offre Hobby), `GET /api/cron/rappels` envoie un rappel à chaque rendez-vous confirmé dont le début tombe le lendemain (date de Paris) : date et heure de Paris, durée, type, lien Google Meet s'il existe, bouton « Ajouter à Google Agenda » et règle d'annulation (24 h), jamais « ce qui vous amène ». La route exige `Authorization: Bearer <CRON_SECRET>` : définir `CRON_SECRET` dans Vercel suffit, Vercel l'envoie de lui-même à la tâche ; sans cette variable, la route est désactivée (503). Un même rendez-vous n'est rappelé qu'une fois, même si la tâche est appelée deux fois (`reminder_sent_at`), et un déplacement permet un nouveau rappel. Un envoi refusé par Resend est journalisé (adresse masquée) et réessayé au prochain appel du jour ; un appel manqué n'est pas rattrapé. La réponse ne contient que des compteurs (`sent`, `skipped`, `failed`). Déclenchement à la main : `curl -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/rappels`.
 - **Journal d'humeur** (« météo intérieure ») : depuis l'onglet « Journal » de son espace, le client note chaque jour sa météo intérieure sur cinq niveaux (orage, pluie, nuageux, éclaircies, soleil), avec une note facultative de 500 caractères. Une seule entrée par jour (date de Paris) : enregistrer à nouveau remplace celle du jour. Il voit les 30 derniers jours en barres et la liste de ses entrées, qu'il peut modifier ou supprimer. Le gérant retrouve les 14 derniers jours d'un client (barres et dernières notes) dans le panneau d'un rendez-vous rattaché à un compte, et via le bouton « Journal » de la carte « Comptes clients ». Seuls le client et le gérant y ont accès ; le journal n'est jamais repris dans un e-mail ni dans Google Agenda. Table `mood_entries` (unique par client et par jour, supprimée avec le compte).
 - **Préparation et compte rendu de séance** : pour chacun de ses rendez-vous confirmés à venir, le client connecté note « Ce que j'aimerais aborder » (1 000 caractères au plus), modifiable jusqu'à l'heure de début (règle vérifiée côté serveur). Le gérant la lit dans le panneau du rendez-vous. Une fois la séance marquée « réalisée », il y rédige un compte rendu (3 000 caractères au plus) et jusqu'à 5 actions à faire d'ici la prochaine séance, modifiables ensuite (une action conservée garde son état). Le client lit le compte rendu depuis le rendez-vous passé et coche ses actions ; le gérant voit l'état des cases, et les actions encore ouvertes de la dernière séance sont mises en avant dans le tableau de bord du client. À la première publication, le client reçoit l'e-mail « Votre compte rendu de séance est disponible », avec un lien vers son espace mais sans le contenu. Un rendez-vous pris sans compte n'a pas cette fonction. Colonne `appointments.preparation`, tables `session_notes` et `session_actions` (supprimées avec le rendez-vous).
+
+### Assistant IA (« Une question ? »)
+
+- **Mascotte et bouton flottant** en bas à droite de toutes les pages : la mascotte de l'assistant (visuels dans `public/brand/assistant/` : personnage entier, avatar et visage, composant `assistant-avatar.tsx`) salue à l'arrivée, avec la bulle « Une question ? » sur ordinateur. Elle ouvre un panneau de conversation (plein écran sur mobile) : en-tête aux couleurs du thème, accueil illustré par la mascotte et quatre questions fréquentes, avatar à côté de chaque réponse, indicateur de frappe animé (animations désactivées si le système demande moins de mouvements). Les réponses s'affichent au fil de l'eau, en Markdown simple et sûr (gras, listes, liens vers les pages du site, qui referment le panneau ; aucun HTML interprété). La conversation suit la navigation et reste dans l'onglet (`sessionStorage`, clé `synego:assistant`) ; « Nouvelle conversation » l'efface. Bouton pour arrêter une réponse, nouvel essai en cas d'erreur, message de 1 000 caractères au plus (Entrée envoie, Maj + Entrée passe à la ligne).
+- **Modèle** : `gpt-6.1-terra` d'OpenAI, par l'API Responses en flux (`stream: true`), sans SDK (`fetch`, comme Resend et Google Agenda), raisonnement `low` pour répondre vite. Route `POST /api/assistant` ; réponse en NDJSON, une ligne JSON par événement (texte, état d'un outil, carte, fin, erreur) : contrat dans `src/lib/assistant/protocol.ts`.
+- **Tout le contexte du site** : la base de connaissances (`src/lib/assistant/knowledge.ts`) est générée à partir des dictionnaires, de la configuration et des constantes métier : consignes, présentation de Synégo, plan du site, fonctionnement détaillé (réservation, liste d'attente, compte, espace client, espace gérant, e-mails, confidentialité) et **tous les textes de l'interface** dans la langue affichée, pour citer les libellés exacts. Elle ne promet que ce qui est actif sur le serveur (e-mails, liens Meet, rappels). Un texte, une durée ou un délai modifié sur le site est donc repris sans toucher à l'assistant. Chaque question est accompagnée de l'heure de Paris, de la page consultée (sans paramètres d'URL, qui peuvent contenir un jeton), de la langue et du type de visiteur (visiteur, client, gérant).
+- **Outils** (appels de fonctions aux schémas stricts, `src/lib/assistant/tool-definitions.ts`) :
+  - `get_available_slots` : créneaux réellement libres en base, par type de rendez-vous et à partir d'une date, regroupés par jour en heure de Paris. Le suivi reste réservé aux clients connectés, comme dans l'API de réservation ; sans créneau, l'assistant propose la liste d'attente.
+  - `propose_booking` : carte « Réserver : Appel découverte » (ou audit) sous la réponse. « Continuer avec ce résumé » ou « Continuer sans le résumé » ouvre `/rendez-vous` avec le type présélectionné et, au choix de la personne, un résumé de sa demande dans « Ce qui vous amène », par le contrat de préremplissage existant (sessionStorage, jamais dans l'URL ; événement `synego:booking-prefill` quand le formulaire est déjà affiché). Rien n'est réservé ni envoyé à Youcef à cette étape.
+  - `show_crisis_resources` : encart des numéros d'urgence (3114, 15, 112).
+- **Sécurité et bien-être** : consignes strictes (ni diagnostic ni conseil médical, aucune invention de tarif, de coordonnées ou de parcours non publiés, sujets hors périmètre déclinés, tentatives de détournement ignorées, jamais au nom de Youcef). Un repérage sans IA des messages qui évoquent une détresse (`src/lib/assistant/safety.ts`, français et anglais) affiche l'encart d'urgence avant même la réponse et en avertit le modèle.
+- **Données personnelles** : le modèle ne reçoit jamais le nom, l'e-mail, le téléphone, les rendez-vous, les documents ni le journal, et n'a accès à aucun compte. `store: false` : OpenAI ne conserve pas les réponses pour les relire. Le site n'enregistre aucune conversation. La page Confidentialité déclare OpenAI comme sous-traitant.
+- **Coût et abus** : 20 messages par quart d'heure et par connexion (empreinte de l'adresse IP dans `login_attempts`, jamais l'adresse elle-même ; compteur en mémoire si la base ne répond pas), plafond quotidien pour tout le site (`ASSISTANT_DAILY_LIMIT`, 500 par défaut), 20 derniers messages transmis, 6 000 jetons de sortie au plus (raisonnement compris), contrôle d'origine comme `/api/portal`. La base de connaissances (environ 22 000 jetons) ouvre chaque requête et porte un point de cache : relue depuis le cache d'OpenAI, elle coûte 0,05 $ par million de jetons au lieu de 1 $. Ordre de grandeur : quelques dixièmes de centime par message une fois le cache chaud, environ 3 centimes quand il faut l'écrire. Si OpenAI refuse un paramètre facultatif (cache explicite, verbosité), la requête repart sans lui et l'assistant reste disponible. Les journaux indiquent les jetons consommés (entrée, cache, sortie), jamais le contenu.
+- **Sans `OPENAI_API_KEY`**, l'assistant est désactivé : pas de bouton, et `/api/assistant` répond 503.
 
 Hors périmètre (décision de l'équipe) : paiement.
 
@@ -98,6 +113,21 @@ Mise en place, une fois :
 3. **API Keys → Create API Key** (permission « Sending access », limitée au domaine `abdu.fr`), puis renseigner `RESEND_API_KEY` dans `.env.local` et dans Vercel (Settings → Environment Variables), et redéployer.
 
 À savoir : une clé refusée ou un domaine non vérifié est journalisé (`[mail] envoi refusé par Resend (403)…`) sans bloquer le site ; l'onglet **Emails** de Resend montre l'état de chaque message (remis, rebond, plainte). Offre gratuite : 100 e-mails par jour et 3 000 par mois. Un domaine neuf finit facilement dans les indésirables : d'où un vrai nom d'expéditeur, un contenu réaliste et une version texte dans chaque e-mail. Pas de pièce jointe envoyée (le lien Google Agenda remplace le fichier `.ics`).
+
+### Configurer l'assistant IA (OpenAI)
+
+| Variable                  | Rôle                                                                                          |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`          | Clé d'API OpenAI, `sk-…` (**serveur uniquement**, jamais dans une variable `NEXT_PUBLIC_`). Sans elle, l'assistant est désactivé. |
+| `OPENAI_MODEL`            | Modèle, `gpt-6.1-terra` par défaut                                                            |
+| `OPENAI_REASONING_EFFORT` | Effort de raisonnement : `none`, `low` (par défaut), `medium`, `high`, `xhigh` ou `max`        |
+| `ASSISTANT_DAILY_LIMIT`   | Messages acceptés par jour pour tout le site (500 par défaut)                                 |
+| `OPENAI_API_URL`          | Adresse de l'API Responses (`https://api.openai.com/v1/responses` par défaut ; faux serveur dans les tests) |
+
+Mise en place, une fois :
+1. Sur [platform.openai.com](https://platform.openai.com), créer un projet « Synégo » et une clé d'API propre à ce projet ; fixer un budget mensuel et des alertes de facturation.
+2. Renseigner `OPENAI_API_KEY` dans `.env.local` et dans Vercel (Settings → Environment Variables), puis redéployer : le bouton « Une question ? » apparaît.
+3. Contrôler les journaux : `[assistant] gpt-6.1-terra completed · entrée … (cache …) · sortie …` à chaque réponse. Une clé ou un modèle refusé donne `[assistant] OpenAI indisponible : 401 …` ; le visiteur voit alors « L'assistant n'a pas pu répondre ».
 
 ## Langues
 
@@ -157,9 +187,10 @@ Le test démarre un serveur de production sur le port 43127 avec une **base Post
 - `tests/journal.test.mjs` : journal d'humeur (entrée du jour remplacée, validation, isolation entre clients, lecture par le gérant sans écriture, refus pour un visiteur, suppression en cascade avec le compte) ;
 - `tests/seances.test.mjs` : préparation (refusée après le début et aux autres comptes), compte rendu réservé au gérant sur une séance réalisée, actions cochées par le bon client seulement, e-mail unique et sans contenu ;
 - `tests/liste-attente.test.mjs` : inscription, alertes à l'annulation et à l'ajout de créneaux, pas de double alerte, règle des 2 heures, limite de débit, désinscription ;
-- `tests/rappels.test.mjs` : jeton exigé, rappel du lendemain seulement, idempotence sur double appel, nouveau rappel après déplacement, langue, échec Resend réessayé.
+- `tests/rappels.test.mjs` : jeton exigé, rappel du lendemain seulement, idempotence sur double appel, nouveau rappel après déplacement, langue, échec Resend réessayé ;
+- `tests/assistant-creneaux.test.mjs` : assistant avec une vraie base et un faux OpenAI : créneaux réels lus par l'outil (regroupés par jour, heure de Paris, filtre par date), suivi refusé au visiteur et proposé au client connecté, aucune donnée personnelle envoyée à OpenAI, compteur de débit en base sous forme d'empreinte (20 messages, puis 429).
 
-`pnpm test:i18n` lance aussi `tests/self-assessment.test.mjs` (paliers du questionnaire, résumé, contrat de préremplissage, numéros d'urgence dans les deux langues) et `tests/sections.test.mjs` (témoignages masqués sans données, récapitulatif du configurateur). `I18N_TEST_PORT` change le port du serveur de ces tests.
+`pnpm test:i18n` lance aussi `tests/self-assessment.test.mjs` (paliers du questionnaire, résumé, contrat de préremplissage, numéros d'urgence dans les deux langues), `tests/sections.test.mjs` (témoignages masqués sans données, récapitulatif du configurateur) et `tests/assistant.test.mjs` : Markdown sûr, repérage de la détresse, validation des requêtes, schémas d'outils stricts, puis l'API de l'assistant contre un faux serveur OpenAI, sans base (flux, base de connaissances et contexte envoyés, jeton d'URL jamais transmis, outils et rejeu du raisonnement chiffré, encart d'urgence, réponse coupée, erreurs traduites, nouvel essai sans paramètre facultatif refusé, limites par visiteur et par jour). `I18N_TEST_PORT` et `ASSISTANT_TEST_PORT` changent le port du serveur de ces tests. Sans `OPENAI_API_KEY`, `tests/i18n.test.mjs` vérifie que l'assistant est absent des pages et que son API répond 503.
 
 ## Structure
 
@@ -169,9 +200,11 @@ src/
 │   ├── layout.tsx            # Layout racine, langue, polices et métadonnées
 │   ├── (site)/               # Pages publiques en français et anglais
 │   ├── api/portal/route.ts   # API : réservation, connexion, support, espace gérant
+│   ├── api/assistant/        # API de l'assistant IA (réponse en flux)
 │   └── api/cron/rappels/     # Tâche planifiée : rappels de la veille
 ├── components/
 │   ├── account/              # Connexion, espace client, espace gérant, support
+│   ├── assistant/            # Bouton et panneau de conversation de l'assistant IA
 │   ├── booking/              # Formulaire de réservation, sélecteur de créneaux, liste d'attente
 │   ├── quiz/                 # Questionnaire d'auto-évaluation
 │   ├── seminars/             # Configurateur de séminaire
@@ -184,6 +217,7 @@ src/
 ├── content/                  # Dictionnaires français et anglais
 ├── db/schema.ts              # Schéma Drizzle
 └── lib/
+    ├── assistant/            # Assistant IA : base de connaissances, client OpenAI, outils, limites
     ├── booking-prefill.ts    # Préremplissage du formulaire de réservation
     ├── format.ts             # Dates (heure de Paris) et gabarits de texte
     ├── quiz.ts               # Paliers et résumé du questionnaire
@@ -228,5 +262,6 @@ Le thème est porté par l'attribut `data-theme` de `<html>`, le mode sombre par
 - Questionnaire d'auto-évaluation : formulation des questions et des paliers, à relire par Youcef.
 - Témoignages : en recueillir avec l'accord écrit des personnes avant de les publier.
 - Rappels de la veille : définir `CRON_SECRET` dans Vercel pour les activer.
+- Assistant IA : créer le projet OpenAI (clé, budget), accepter l'avenant sur le traitement des données (DPA) d'OpenAI et vérifier ses conditions de conservation pour la page Confidentialité ; relire avec Youcef les réponses aux questions fréquentes. Tant que tarifs, parcours et coordonnées ne sont pas publiés, l'assistant répond qu'ils ne le sont pas encore.
 - Pages légales et confidentialité (le champ « intention » peut contenir des informations sensibles).
 - Hébergement : Postgres installé sur le serveur, sauvegardes et HTTPS.
