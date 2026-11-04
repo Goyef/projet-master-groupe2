@@ -8,15 +8,24 @@ import { Testimonials } from "@/components/sections/testimonials"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getTexts, canonicalUrl } from "@/lib/i18n-server"
+import type { Locale } from "@/lib/i18n"
+import { getLocale, getTexts, canonicalUrl } from "@/lib/i18n-server"
 import portraitYoucef from "../../../public/brand/youcef.png"
-import promoPoster from "../../../public/video/synego-promo-poster.webp"
+import promoPosterEn from "../../../public/video/synego-promo-en-poster.webp"
+import promoPosterFr from "../../../public/video/synego-promo-poster.webp"
 
 const pillarIcons = [EyeIcon, SearchIcon, CompassIcon]
 
+// Vidéo de présentation dans la langue de la page : ses textes incrustés sont traduits.
+const promoVideos = {
+  fr: { src: "/video/synego-promo.mp4", poster: promoPosterFr.src },
+  en: { src: "/video/synego-promo-en.mp4", poster: promoPosterEn.src },
+} satisfies Record<Locale, { src: string; poster: string }>
+
 export default async function HomePage() {
-  const dict = await getTexts()
+  const [dict, locale] = await Promise.all([getTexts(), getLocale()])
   const home = dict.home
+  const promo = promoVideos[locale]
 
   return (
     <>
@@ -53,22 +62,22 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Vidéo de présentation : le site et l'approche en 30 secondes, juste sous l'accroche. */}
-      {/* Pleine largeur et rognée horizontalement : le halo du cadre ne crée pas de défilement latéral. */}
-      <section aria-labelledby="video-titre" className="overflow-x-clip pb-20 md:pb-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="mb-10 space-y-2 text-center">
-            <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.videoEyebrow}</p>
-            <h2 id="video-titre" className="text-4xl font-semibold">
-              {home.videoTitle}
-            </h2>
-          </div>
-          <PromoVideo
-            src="/video/synego-promo.mp4"
-            poster={promoPoster.src}
-            labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
-          />
+      {/* Vidéo de présentation en grand, sans cadre : le site et l'approche en 30 secondes, juste sous l'accroche. */}
+      <section aria-labelledby="video-titre" className="pb-12 md:pb-16">
+        <div className="mx-auto max-w-6xl space-y-2 px-4 text-center sm:px-6">
+          <p className="text-sm font-medium tracking-widest text-brand-sky uppercase">{home.videoEyebrow}</p>
+          <h2 id="video-titre" className="text-4xl font-semibold">
+            {home.videoTitle}
+          </h2>
         </div>
+        {/* Nouvelle clé au changement de langue : la vidéo repart du début et se relance seule. */}
+        <PromoVideo
+          key={promo.src}
+          src={promo.src}
+          poster={promo.poster}
+          labels={{ play: home.videoPlay, pause: home.videoPause, description: home.videoDescription }}
+          className="mx-auto max-w-screen-2xl"
+        />
       </section>
 
       <section id="approche" className="scroll-mt-20 border-y bg-card">
